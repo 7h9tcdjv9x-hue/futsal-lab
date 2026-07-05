@@ -1,0 +1,39 @@
+:root {
+  --sfondo: #101311; --card: #1B1F1B; --card2: #232823; --bordo: #33362F;
+  --testo: #ECECEA; --testo2: #B4B2A9; --testo3: #888780;
+  --verde: #97C459; --verde-scuro: #173404; --giallo: #EF9F27; --rosso: #E24B4A;
+}
+* { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+body { background: var(--sfondo); color: var(--testo); font: 16px/1.5 -apple-system, system-ui, sans-serif;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+#vista { padding: max(16px, env(safe-area-inset-top)) 16px 16px; max-width: 480px; margin: 0 auto; }
+#tabbar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: var(--card);
+  border-top: 1px solid var(--bordo); padding-bottom: env(safe-area-inset-bottom); }
+#tabbar button { flex: 1; background: none; border: 0; color: var(--testo3); font-size: 20px;
+  padding: 8px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+#tabbar button span { font-size: 11px; }
+#tabbar button.attivo { color: var(--verde); }
+.card { background: var(--card); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+.card h2 { font-size: 13px; color: var(--testo2); font-weight: 500; margin-bottom: 10px; }
+h1 { font-size: 22px; font-weight: 600; margin: 4px 0 14px; }
+.eyebrow { font-size: 13px; color: var(--verde); font-weight: 500; }
+.riga { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+.riga .cresci { flex: 1; }
+button.primario { background: var(--verde); color: var(--verde-scuro); border: 0; border-radius: 10px;
+  padding: 12px 16px; font-size: 16px; font-weight: 600; width: 100%; }
+button.secondario { background: var(--card2); color: var(--testo); border: 1px solid var(--bordo);
+  border-radius: 10px; padding: 10px 14px; font-size: 15px; }
+input, select, textarea { background: var(--card2); color: var(--testo); border: 1px solid var(--bordo);
+  border-radius: 10px; padding: 10px; font-size: 16px; width: 100%; }
+input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--verde); }
+.pillole { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.pillole button { border-radius: 20px; padding: 6px 14px; font-size: 13px; border: 0;
+  background: var(--card); color: var(--testo2); }
+.pillole button.attivo { background: var(--verde); color: var(--verde-scuro); font-weight: 600; }
+.griglia2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metrica { background: var(--card); border-radius: 14px; padding: 10px 12px; }
+.metrica .etichetta { font-size: 11px; color: var(--testo3); }
+.metrica .valore { font-size: 18px; font-weight: 600; }
+.banner { border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; }
+.banner.avviso { background: #3a2f12; color: #FAC775; }
+.spento { color: var(--testo3); text-decoration: line-through; }
