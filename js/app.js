@@ -6,6 +6,7 @@ import { vistaPiani } from './pianiView.js';
 import { vistaProgressi } from './progressi.js';
 import { vistaDieta } from './dieta.js';
 import { vistaImpostazioni } from './impostazioni.js';
+import { icona } from './icone.js';
 
 export const VISTE = {};
 export const stato = { store: null, oggi: dataISO() };
@@ -22,8 +23,11 @@ export function naviga(tab) {
   tabCorrente = tab;
   document.querySelectorAll('#tabbar button').forEach(b => b.classList.toggle('attivo', b.dataset.tab === tab));
   const radice = document.getElementById('vista');
+  radice.classList.remove('entra');
+  void radice.offsetWidth;
   radice.innerHTML = '';
   (VISTE[tab] ?? (() => { radice.textContent = 'In costruzione'; }))(stato, radice);
+  radice.classList.add('entra');
 }
 
 if (typeof document !== 'undefined') {
@@ -31,6 +35,13 @@ if (typeof document !== 'undefined') {
   stato.store = creaStore();
   const piani = stato.store.leggi('piani', null);
   if (!piani) stato.store.scrivi('piani', [PIANO_PRECARICATO]);
+  // Popola icone SVG tab bar
+  const ICONE_TAB = { oggi: 'casa', piani: 'elenco', progressi: 'grafico', dieta: 'mela' };
+  document.querySelectorAll('#tabbar button[data-tab]').forEach(btn => {
+    const nome = ICONE_TAB[btn.dataset.tab];
+    if (nome) btn.querySelector('.icona-tab').appendChild(icona(nome, 22));
+  });
+
   document.getElementById('tabbar').addEventListener('click', e => {
     const b = e.target.closest('button'); if (b) naviga(b.dataset.tab);
   });

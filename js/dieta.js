@@ -1,6 +1,8 @@
 // ─── dieta.js — tab Dieta ────────────────────────────────────────────────────
 import { PASTI_MASSA, PASTI_MANTENIMENTO } from './programma.js';
 import { abitudiniGiorno } from './oggi.js';
+import { segmented, chip } from './ui.js';
+import { icona } from './icone.js';
 
 // ─── Helper: statistiche abitudini ───────────────────────────────────────────
 
@@ -83,37 +85,29 @@ function creaCard(titolo) {
   return card;
 }
 
-function creaPillole(voci, attiva, onCambia) {
-  const div = document.createElement('div');
-  div.className = 'pillole';
-  for (const [chiave, etichetta] of voci) {
-    const btn = document.createElement('button');
-    btn.textContent = etichetta;
-    btn.className = chiave === attiva ? 'attivo' : '';
-    btn.addEventListener('click', () => {
-      div.querySelectorAll('button').forEach(b => b.classList.remove('attivo'));
-      btn.classList.add('attivo');
-      onCambia(chiave);
-    });
-    div.appendChild(btn);
-  }
-  return div;
-}
-
 function renderCardPasti(pasti) {
   const frag = document.createDocumentFragment();
   for (const { titolo, voci } of pasti) {
-    const card = creaCard(titolo);
-    const ul = document.createElement('ul');
-    ul.style.cssText = 'margin:6px 0 0 0;padding-left:18px;';
-    for (const voce of voci) {
-      const li = document.createElement('li');
-      li.className = 'secondario';
-      li.style.cssText = 'margin-bottom:4px;';
-      li.textContent = voce;
-      ul.appendChild(li);
+    const card = creaCard('');
+    // Titolo pasto: headline
+    const titoloEl = document.createElement('div');
+    titoloEl.className = 'headline';
+    titoloEl.textContent = titolo;
+    card.appendChild(titoloEl);
+
+    // Voci footnote separate da hairline
+    for (let i = 0; i < voci.length; i++) {
+      if (i > 0) {
+        const sep = document.createElement('div');
+        sep.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin:0;';
+        card.appendChild(sep);
+      }
+      const voceEl = document.createElement('div');
+      voceEl.className = 'footnote secondario';
+      voceEl.style.cssText = 'padding:6px 0;';
+      voceEl.textContent = voci[i];
+      card.appendChild(voceEl);
     }
-    card.appendChild(ul);
     frag.appendChild(card);
   }
   return frag;
@@ -128,7 +122,15 @@ function renderPianiAttivi(store, container) {
   if (pianiAlimentari.length === 0) return;
 
   for (const piano of pianiAlimentari) {
-    const card = creaCard(piano.nome || 'Piano alimentare');
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    // Titolo piano: headline (textContent per valore utente)
+    const titoloEl = document.createElement('div');
+    titoloEl.className = 'headline';
+    titoloEl.textContent = piano.nome || 'Piano alimentare';
+    card.appendChild(titoloEl);
+
     if (piano.pasti && piano.pasti.length > 0) {
       for (const pasto of piano.pasti) {
         const riga = document.createElement('div');
@@ -139,16 +141,18 @@ function renderPianiAttivi(store, container) {
         riga.appendChild(nomeSpan);
         card.appendChild(riga);
         if (pasto.voci && pasto.voci.length > 0) {
-          const ul = document.createElement('ul');
-          ul.style.cssText = 'margin:4px 0 0 0;padding-left:18px;';
-          for (const voce of pasto.voci) {
-            const li = document.createElement('li');
-            li.className = 'secondario';
-            li.style.cssText = 'margin-bottom:3px;';
-            li.textContent = voce;
-            ul.appendChild(li);
+          for (let i = 0; i < pasto.voci.length; i++) {
+            if (i > 0) {
+              const sep = document.createElement('div');
+              sep.style.cssText = 'height:1px;background:rgba(255,255,255,0.08);margin:0;';
+              card.appendChild(sep);
+            }
+            const voceEl = document.createElement('div');
+            voceEl.className = 'footnote secondario';
+            voceEl.style.cssText = 'padding:5px 0;';
+            voceEl.textContent = pasto.voci[i];
+            card.appendChild(voceEl);
           }
-          card.appendChild(ul);
         }
       }
     }
@@ -163,26 +167,32 @@ function renderAbitudini(store, oggi, container) {
 
   const card = creaCard('Abitudini della settimana');
 
-  // Streak
-  const streakDiv = document.createElement('div');
-  streakDiv.className = 'griglia2';
-  streakDiv.style.marginBottom = '12px';
+  // Streak con icona fiamma lime + valore headline
+  const streakRiga = document.createElement('div');
+  streakRiga.className = 'riga';
+  streakRiga.style.marginBottom = '8px';
 
-  const metricaStreak = document.createElement('div');
-  metricaStreak.className = 'metrica';
   const streakLabel = document.createElement('span');
-  streakLabel.className = 'etichetta';
+  streakLabel.className = 'secondario';
   streakLabel.textContent = 'Streak 5/5';
-  metricaStreak.appendChild(streakLabel);
-  const streakValore = document.createElement('span');
-  streakValore.className = 'valore';
-  streakValore.textContent = streak + (streak === 1 ? ' giorno' : ' giorni');
-  streakValore.style.color = streak >= 7 ? '#97C459' : streak >= 3 ? '#EF9F27' : 'inherit';
-  metricaStreak.appendChild(streakValore);
-  streakDiv.appendChild(metricaStreak);
-  card.appendChild(streakDiv);
+  streakRiga.appendChild(streakLabel);
 
-  // Ultime 4 settimane
+  const streakDx = document.createElement('div');
+  streakDx.style.cssText = 'display:flex;align-items:center;gap:4px;';
+
+  const fiammaEl = icona('fiamma', 16);
+  fiammaEl.style.color = 'var(--accento)';
+  streakDx.appendChild(fiammaEl);
+
+  const streakValore = document.createElement('span');
+  streakValore.className = 'headline';
+  streakValore.textContent = streak + (streak === 1 ? ' giorno' : ' giorni');
+  streakDx.appendChild(streakValore);
+
+  streakRiga.appendChild(streakDx);
+  card.appendChild(streakRiga);
+
+  // Ultime 4 settimane: righe "sett. del D mmm" + percentuale tabular a destra (headline)
   for (const { inizio, percento } of settimane) {
     const riga = document.createElement('div');
     riga.className = 'riga';
@@ -190,12 +200,12 @@ function renderAbitudini(store, oggi, container) {
     const dataSpan = document.createElement('span');
     dataSpan.className = 'secondario';
     const lunedi = new Date(inizio + 'T12:00:00');
-    dataSpan.textContent = 'Sett. ' + lunedi.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+    dataSpan.textContent = 'sett. del ' + lunedi.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
 
     const percentoSpan = document.createElement('span');
-    percentoSpan.className = 'primario';
+    percentoSpan.className = 'headline';
+    percentoSpan.style.fontVariantNumeric = 'tabular-nums';
     percentoSpan.textContent = percento + '%';
-    percentoSpan.style.color = percento === 100 ? '#97C459' : percento >= 70 ? '#EF9F27' : 'inherit';
 
     riga.appendChild(dataSpan);
     riga.appendChild(percentoSpan);
@@ -209,10 +219,9 @@ function renderAbitudini(store, oggi, container) {
 
 function renderNotaIntegratori(container) {
   const card = creaCard('Integratori');
-  const p = document.createElement('p');
-  p.className = 'secondario';
-  p.textContent = 'Gli integratori non servono: prima il cibo vero. Per qualsiasi integratore decidi con genitori e medico.';
-  card.appendChild(p);
+  // Nota come chip ambra
+  const chipEl = chip('Gli integratori non servono: prima il cibo vero. Per qualsiasi integratore decidi con genitori e medico.', 'ambra');
+  card.appendChild(chipEl);
   container.appendChild(card);
 }
 
@@ -244,28 +253,26 @@ export function vistaDieta(stato, radice) {
   radice.innerHTML = '';
 
   const header = document.createElement('h1');
-  header.className = 'eyebrow';
+  header.className = 'titolo-vista';
   header.textContent = 'Dieta';
   radice.appendChild(header);
 
-  const TABS = [
-    ['massa', 'Fase massa'],
-    ['mantenimento', 'Mantenimento'],
-    ['abitudini', 'Abitudini'],
-  ];
+  const TABS = ['Fase massa', 'Mantenimento', 'Abitudini'];
 
+  let tabAttiva = 0;
   const contenuto = document.createElement('div');
   contenuto.style.marginTop = '12px';
 
-  function caricaTab(tab) {
-    if (tab === 'massa') renderMassa(store, contenuto);
-    else if (tab === 'mantenimento') renderMantenimento(store, contenuto);
+  function caricaTab(idx) {
+    tabAttiva = idx;
+    if (idx === 0) renderMassa(store, contenuto);
+    else if (idx === 1) renderMantenimento(store, contenuto);
     else renderAbitudiniTab(store, oggi, contenuto);
   }
 
-  const pillole = creaPillole(TABS, 'massa', caricaTab);
-  radice.appendChild(pillole);
+  const seg = segmented(TABS, 0, caricaTab);
+  radice.appendChild(seg);
   radice.appendChild(contenuto);
 
-  caricaTab('massa');
+  caricaTab(0);
 }

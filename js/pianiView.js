@@ -2,6 +2,8 @@ import { SEDUTE, CALENDARIO, REGOLE_ORO, TEMPLATE_STAGIONE } from './programma.j
 import { chiaveSeduta } from './oggi.js';
 import { validaPiano, TIPI_PIANO, suggerisciUnificazioni, esportaPiano } from './piani.js';
 import { slugEsercizio } from './util.js';
+import { icona } from './icone.js';
+import { segmented, chip, intestazione } from './ui.js';
 
 // ─── COSTANTI ────────────────────────────────────────────────────────────────
 
@@ -19,6 +21,39 @@ function creaCard(titolo) {
     card.appendChild(h);
   }
   return card;
+}
+
+/** Quadrato icona tipo piano: 34×34, sup2 bg, radius 10 */
+function iconaTipoPiano(tipo) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = [
+    'width:34px', 'height:34px', 'border-radius:10px',
+    'background:var(--sup2)', 'display:flex', 'align-items:center',
+    'justify-content:center', 'flex-shrink:0',
+  ].join(';');
+  let nomeIcona = 'elenco';
+  if (tipo === 'tecnica') nomeIcona = 'fiamma';
+  else if (tipo === 'alimentare') nomeIcona = 'mela';
+  wrap.appendChild(icona(nomeIcona, 18));
+  return wrap;
+}
+
+/** Badge stato pill footnote */
+function badgeStato(stato) {
+  const badge = document.createElement('span');
+  badge.style.cssText = [
+    'font-size:13px', 'font-weight:600', 'padding:2px 10px',
+    'border-radius:999px', 'white-space:nowrap',
+  ].join(';');
+  if (stato === 'attivo') {
+    badge.style.background = 'var(--tinta-verde)';
+    badge.style.color = 'var(--verde)';
+  } else {
+    badge.style.background = 'var(--sup2)';
+    badge.style.color = 'var(--testo2)';
+  }
+  badge.textContent = stato === 'attivo' ? 'Attivo' : 'Archiviato';
+  return badge;
 }
 
 // ─── EDITOR PIANI ────────────────────────────────────────────────────────────
@@ -68,35 +103,41 @@ function apriEditor(radice, store, pianoEsistente = null, tornaElenco = null) {
   }
   radice.appendChild(datalist);
 
-  // Bottone Annulla
+  // Riga back + titolo
+  const rigaBack = document.createElement('div');
+  rigaBack.className = 'riga';
+  rigaBack.style.marginBottom = '16px';
+  rigaBack.style.gap = '12px';
+
   const btnAnnulla = document.createElement('button');
   btnAnnulla.className = 'secondario';
-  btnAnnulla.textContent = '← Annulla';
-  btnAnnulla.style.marginBottom = '12px';
+  const freccia = icona('frecciaSinistra', 16);
+  freccia.style.marginRight = '4px';
+  btnAnnulla.appendChild(freccia);
+  const spnAnnulla = document.createElement('span');
+  spnAnnulla.textContent = 'Annulla';
+  btnAnnulla.appendChild(spnAnnulla);
   btnAnnulla.addEventListener('click', () => {
     if (tornaElenco) tornaElenco();
   });
-  radice.appendChild(btnAnnulla);
 
-  // Titolo
   const h1 = document.createElement('h1');
+  h1.className = 'titolo-vista';
+  h1.style.margin = '0';
+  h1.style.flex = '1';
   h1.textContent = pianoEsistente ? 'Modifica piano' : 'Nuovo piano';
-  radice.appendChild(h1);
 
-  // Banner errore
+  rigaBack.appendChild(btnAnnulla);
+  rigaBack.appendChild(h1);
+  radice.appendChild(rigaBack);
+
+  // Banner errore (chip rosso)
   let bannerErrore = null;
   function mostraErrore(msg) {
     if (bannerErrore) bannerErrore.remove();
-    bannerErrore = document.createElement('p');
-    bannerErrore.style.background = '#3a1212';
-    bannerErrore.style.color = '#F09595';
-    bannerErrore.style.padding = '10px 14px';
-    bannerErrore.style.borderRadius = '8px';
+    bannerErrore = chip(msg, 'rosso');
     bannerErrore.style.marginBottom = '12px';
-    bannerErrore.style.fontSize = '14px';
-    bannerErrore.textContent = msg;
-    // Inserisci dopo il titolo h1
-    h1.insertAdjacentElement('afterend', bannerErrore);
+    rigaBack.insertAdjacentElement('afterend', bannerErrore);
   }
 
   // Card form principale
@@ -450,13 +491,14 @@ function apriEditor(radice, store, pianoEsistente = null, tornaElenco = null) {
 
   renderSezione();
 
-  // ── Bottone Salva ──
+  // ── Bottoni Salva / Annulla ──
   const cardAzioni = document.createElement('div');
   cardAzioni.style.marginTop = '16px';
   cardAzioni.style.display = 'flex';
   cardAzioni.style.gap = '8px';
 
   const btnSalva = document.createElement('button');
+  btnSalva.className = 'primario';
   btnSalva.textContent = 'Salva piano';
   btnSalva.addEventListener('click', () => {
     const tipo = selectTipo.value;
@@ -547,31 +589,39 @@ function idLibero(idBase, lista) {
 function apriImport(radice, store, tornaSu) {
   radice.innerHTML = '';
 
-  // Bottone Annulla
+  // Riga back + titolo
+  const rigaBack = document.createElement('div');
+  rigaBack.className = 'riga';
+  rigaBack.style.marginBottom = '16px';
+  rigaBack.style.gap = '12px';
+
   const btnAnnulla = document.createElement('button');
   btnAnnulla.className = 'secondario';
-  btnAnnulla.textContent = '← Annulla';
-  btnAnnulla.style.marginBottom = '12px';
+  const freccia = icona('frecciaSinistra', 16);
+  freccia.style.marginRight = '4px';
+  btnAnnulla.appendChild(freccia);
+  const spnBack = document.createElement('span');
+  spnBack.textContent = 'Annulla';
+  btnAnnulla.appendChild(spnBack);
   btnAnnulla.addEventListener('click', () => { if (tornaSu) tornaSu(); });
-  radice.appendChild(btnAnnulla);
 
   const h1 = document.createElement('h1');
+  h1.className = 'titolo-vista';
+  h1.style.margin = '0';
+  h1.style.flex = '1';
   h1.textContent = 'Importa piano';
-  radice.appendChild(h1);
 
-  // Zona errore
+  rigaBack.appendChild(btnAnnulla);
+  rigaBack.appendChild(h1);
+  radice.appendChild(rigaBack);
+
+  // Zona errore (chip rosso)
   let bannerErroreEl = null;
   function mostraErroreImport(msg) {
     if (bannerErroreEl) bannerErroreEl.remove();
-    bannerErroreEl = document.createElement('p');
-    bannerErroreEl.style.background = '#3a1212';
-    bannerErroreEl.style.color = '#F09595';
-    bannerErroreEl.style.padding = '10px 14px';
-    bannerErroreEl.style.borderRadius = '8px';
+    bannerErroreEl = chip(msg, 'rosso');
     bannerErroreEl.style.marginBottom = '12px';
-    bannerErroreEl.style.fontSize = '14px';
-    bannerErroreEl.textContent = msg;
-    h1.insertAdjacentElement('afterend', bannerErroreEl);
+    rigaBack.insertAdjacentElement('afterend', bannerErroreEl);
   }
 
   // Card con file input + textarea
@@ -756,12 +806,15 @@ function renderAnteprima(piano, contenitore, store, tornaSu) {
     const nuovi = tuttiEsercizi.filter(e => !slugNoti.has(slugEsercizio(e.nome)));
 
     if (giaNoti.length > 0) {
-      const cardNoti = creaCard('Già noti');
+      contenitore.appendChild(intestazione('GIÀ NOTI'));
+      const cardNoti = document.createElement('div');
+      cardNoti.className = 'card';
       contenitore.appendChild(cardNoti);
       for (const es of giaNoti) {
         const riga = document.createElement('div');
         riga.className = 'riga';
         const span = document.createElement('span');
+        span.className = 'cresci';
         span.style.fontSize = '14px';
         span.textContent = es.nome;
         riga.appendChild(span);
@@ -770,12 +823,15 @@ function renderAnteprima(piano, contenitore, store, tornaSu) {
     }
 
     if (nuovi.length > 0) {
-      const cardNuovi = creaCard('Nuovi');
+      contenitore.appendChild(intestazione('NUOVI'));
+      const cardNuovi = document.createElement('div');
+      cardNuovi.className = 'card';
       contenitore.appendChild(cardNuovi);
       for (const es of nuovi) {
         const riga = document.createElement('div');
         riga.className = 'riga';
         const span = document.createElement('span');
+        span.className = 'cresci';
         span.style.fontSize = '14px';
         span.textContent = es.nome;
         riga.appendChild(span);
@@ -786,7 +842,9 @@ function renderAnteprima(piano, contenitore, store, tornaSu) {
     // ── Suggerimenti unificazione ──
     const suggerimenti = suggerisciUnificazioni(piano, slugNotiArr);
     if (suggerimenti.length > 0) {
-      const cardSugg = creaCard('Possibili unificazioni');
+      contenitore.appendChild(intestazione('POSSIBILI UNIFICAZIONI'));
+      const cardSugg = document.createElement('div');
+      cardSugg.className = 'card';
       contenitore.appendChild(cardSugg);
 
       // Nota: usiamo un array in memoria per rimuovere righe già gestite
@@ -837,6 +895,7 @@ function renderAnteprima(piano, contenitore, store, tornaSu) {
           testoSugg.appendChild(q2);
 
           const btnUnifica = document.createElement('button');
+          btnUnifica.className = 'secondario';
           btnUnifica.style.fontSize = '12px';
           btnUnifica.style.padding = '4px 10px';
           btnUnifica.textContent = 'Unifica';
@@ -879,6 +938,7 @@ function renderAnteprima(piano, contenitore, store, tornaSu) {
 
   // ── Bottone Aggiungi piano ──
   const btnAggiungi = document.createElement('button');
+  btnAggiungi.className = 'primario';
   btnAggiungi.textContent = 'Aggiungi piano';
   btnAggiungi.style.marginTop = '16px';
   contenitore.appendChild(btnAggiungi);
@@ -929,38 +989,39 @@ function renderDettaglioPrecaricato(stato, radice, tornaSu) {
   const { store, oggi } = stato;
   radice.innerHTML = '';
 
-  // Bottone indietro
+  // Riga indietro + titolo
+  const rigaBack = document.createElement('div');
+  rigaBack.className = 'riga';
+  rigaBack.style.marginBottom = '16px';
+  rigaBack.style.gap = '12px';
+
   const btnBack = document.createElement('button');
   btnBack.className = 'secondario';
-  btnBack.textContent = '← Piani';
-  btnBack.style.marginBottom = '12px';
+  const freccia = icona('frecciaSinistra', 16);
+  freccia.style.marginRight = '4px';
+  btnBack.appendChild(freccia);
+  const spnBack = document.createElement('span');
+  spnBack.textContent = 'Piani';
+  btnBack.appendChild(spnBack);
   btnBack.addEventListener('click', tornaSu);
-  radice.appendChild(btnBack);
 
-  // Titolo
   const h1 = document.createElement('h1');
+  h1.className = 'titolo-vista';
+  h1.style.margin = '0';
+  h1.style.flex = '1';
   h1.textContent = 'Programma Futsal 2026';
-  radice.appendChild(h1);
 
-  // Pillole di navigazione interna
+  rigaBack.appendChild(btnBack);
+  rigaBack.appendChild(h1);
+  radice.appendChild(rigaBack);
+
+  // Segmented control di navigazione interna
   const pillole = ['Calendario', 'Sedute', 'Regole', 'Stagione'];
   let pillolaCorrente = 'Calendario';
-
-  const divPillole = document.createElement('div');
-  divPillole.className = 'pillole';
-  radice.appendChild(divPillole);
+  let indiceCorrente = 0;
 
   const contenuto = document.createElement('div');
-  radice.appendChild(contenuto);
-
-  function renderPillola(nome) {
-    pillolaCorrente = nome;
-    // Aggiorna classi bottoni
-    divPillole.querySelectorAll('button').forEach(b => {
-      b.classList.toggle('attivo', b.dataset.pillola === nome);
-    });
-    renderContenutoPillola(nome);
-  }
+  contenuto.style.marginTop = '16px';
 
   function renderContenutoPillola(nome) {
     contenuto.innerHTML = '';
@@ -970,16 +1031,16 @@ function renderDettaglioPrecaricato(stato, radice, tornaSu) {
     else if (nome === 'Stagione') renderStagione(contenuto);
   }
 
-  // Crea bottoni pillola
-  for (const nome of pillole) {
-    const btn = document.createElement('button');
-    btn.dataset.pillola = nome;
-    btn.textContent = nome;
-    btn.addEventListener('click', () => renderPillola(nome));
-    divPillole.appendChild(btn);
-  }
+  const seg = segmented(pillole, indiceCorrente, (i) => {
+    pillolaCorrente = pillole[i];
+    indiceCorrente = i;
+    renderContenutoPillola(pillole[i]);
+  });
+  seg.style.marginBottom = '4px';
+  radice.appendChild(seg);
+  radice.appendChild(contenuto);
 
-  renderPillola('Calendario');
+  renderContenutoPillola(pillolaCorrente);
 }
 
 // ─── SOTTO-RENDER PILLOLE ─────────────────────────────────────────────────────
@@ -1014,10 +1075,21 @@ function renderCalendario(contenuto, store, oggi) {
 
       const dataSpan = document.createElement('span');
       dataSpan.style.minWidth = '90px';
-      dataSpan.style.fontSize = '13px';
-      dataSpan.style.color = iso === oggi ? 'var(--verde)' : 'var(--testo2)';
-      if (iso === oggi) dataSpan.style.fontWeight = '600';
-      dataSpan.textContent = dataBreveit(iso);
+
+      if (iso === oggi) {
+        // Pill lime per giorno corrente
+        dataSpan.style.cssText = [
+          'min-width:90px', 'display:inline-flex', 'align-items:center',
+          'justify-content:center', 'background:var(--accento)',
+          'color:var(--on-accento)', 'border-radius:999px',
+          'padding:2px 10px', 'font-size:13px', 'font-weight:600',
+        ].join(';');
+        dataSpan.textContent = dataBreveit(iso);
+      } else {
+        dataSpan.style.fontSize = '13px';
+        dataSpan.style.color = 'var(--testo2)';
+        dataSpan.textContent = dataBreveit(iso);
+      }
 
       const dxSpan = document.createElement('span');
       dxSpan.className = 'cresci';
@@ -1026,6 +1098,7 @@ function renderCalendario(contenuto, store, oggi) {
       if (seduteCal.length === 0) {
         dxSpan.textContent = 'riposo';
         dxSpan.style.color = 'var(--testo3)';
+        dxSpan.className = 'cresci footnote';
       } else {
         // Verifica se tutte le sedute del giorno sono state fatte
         const tutteFatte = seduteCal.every(([codice]) => {
@@ -1034,18 +1107,20 @@ function renderCalendario(contenuto, store, oggi) {
         });
 
         const codici = seduteCal.map(([codice]) => codice).join(' · ');
-        dxSpan.textContent = codici;
 
         if (tutteFatte) {
           riga.classList.add('spento');
-          dxSpan.textContent = codici + ' ✓';
+          // Testo codici + icona spunta lime
+          const codiciSpan = document.createElement('span');
+          codiciSpan.style.marginRight = '6px';
+          codiciSpan.textContent = codici;
+          dxSpan.appendChild(codiciSpan);
+          const ico = icona('spunta', 14);
+          ico.style.color = 'var(--accento)';
+          dxSpan.appendChild(ico);
+        } else {
+          dxSpan.textContent = codici;
         }
-      }
-
-      // Bordo verde per giorno corrente
-      if (iso === oggi) {
-        riga.style.borderLeft = '3px solid var(--verde)';
-        riga.style.paddingLeft = '8px';
       }
 
       riga.appendChild(dataSpan);
@@ -1085,12 +1160,11 @@ function renderSedute(contenuto) {
         riga.style.gap = '2px';
 
         const nomeSpan = document.createElement('span');
-        nomeSpan.style.fontSize = '14px';
+        nomeSpan.className = 'headline';
         nomeSpan.textContent = es.nome;
 
         const dettaglio = document.createElement('span');
-        dettaglio.className = 'secondario';
-        dettaglio.style.fontSize = '12px';
+        dettaglio.className = 'secondario footnote';
         let det = `${es.serie} × ${es.reps}`;
         if (es.note) det += ` — ${es.note}`;
         dettaglio.textContent = det;
@@ -1102,7 +1176,7 @@ function renderSedute(contenuto) {
     } else if (seduta.voci && seduta.voci.length > 0) {
       for (const voce of seduta.voci) {
         const p = document.createElement('p');
-        p.style.fontSize = '13px';
+        p.className = 'footnote';
         p.style.color = 'var(--testo2)';
         p.style.padding = '4px 0';
         p.textContent = voce;
@@ -1118,6 +1192,7 @@ function renderRegole(contenuto) {
   const card = creaCard('5 Regole d\'oro');
 
   for (let i = 0; i < REGOLE_ORO.length; i++) {
+    const regola = REGOLE_ORO[i];
     const riga = document.createElement('div');
     riga.className = 'riga';
     riga.style.gap = '12px';
@@ -1130,22 +1205,31 @@ function renderRegole(contenuto) {
     numero.style.minWidth = '28px';
     numero.textContent = String(i + 1);
 
-    const testo = document.createElement('span');
-    testo.className = 'cresci';
-    testo.style.fontSize = '14px';
-    testo.textContent = REGOLE_ORO[i];
+    // Regola club → chip ambra; altre → span normale
+    const isClub = regola.toLowerCase().includes('club') || regola.toLowerCase().includes('squadra');
+    let testoEl;
+    if (isClub) {
+      testoEl = chip(regola, 'ambra');
+      testoEl.className += ' cresci';
+    } else {
+      testoEl = document.createElement('span');
+      testoEl.className = 'cresci';
+      testoEl.style.fontSize = '14px';
+      testoEl.textContent = regola;
+    }
 
     riga.appendChild(numero);
-    riga.appendChild(testo);
+    riga.appendChild(testoEl);
     card.appendChild(riga);
   }
 
-  // Nota recupero
-  const notaRec = document.createElement('p');
-  notaRec.className = 'banner avviso';
-  notaRec.style.marginTop = '12px';
-  notaRec.textContent = 'Recupero: tra una seduta di forza e l\'altra lascia almeno 48 h. Il muscolo cresce nel riposo, non durante lo sforzo.';
-  card.appendChild(notaRec);
+  // Nota recupero come chip ambra
+  const chipRec = chip(
+    'Recupero: tra una seduta di forza e l\'altra lascia almeno 48 h. Il muscolo cresce nel riposo, non durante lo sforzo.',
+    'ambra'
+  );
+  chipRec.style.marginTop = '12px';
+  card.appendChild(chipRec);
 
   contenuto.appendChild(card);
 }
@@ -1169,11 +1253,9 @@ function renderStagione(contenuto) {
     card.appendChild(riga);
   }
 
-  const regola = document.createElement('p');
-  regola.className = 'banner avviso';
-  regola.style.marginTop = '12px';
-  regola.textContent = TEMPLATE_STAGIONE.regola;
-  card.appendChild(regola);
+  const chipReg = chip(TEMPLATE_STAGIONE.regola, 'ambra');
+  chipReg.style.marginTop = '12px';
+  card.appendChild(chipReg);
 
   contenuto.appendChild(card);
 }
@@ -1183,32 +1265,42 @@ function renderStagione(contenuto) {
 function renderDettaglioUtente(stato, radice, piano, tornaSu) {
   radice.innerHTML = '';
 
-  // Bottone indietro
+  // Riga indietro + titolo
+  const rigaBack = document.createElement('div');
+  rigaBack.className = 'riga';
+  rigaBack.style.marginBottom = '16px';
+  rigaBack.style.gap = '12px';
+
   const btnBack = document.createElement('button');
   btnBack.className = 'secondario';
-  btnBack.textContent = '← Piani';
-  btnBack.style.marginBottom = '12px';
+  const freccia = icona('frecciaSinistra', 16);
+  freccia.style.marginRight = '4px';
+  btnBack.appendChild(freccia);
+  const spnBackTxt = document.createElement('span');
+  spnBackTxt.textContent = 'Piani';
+  btnBack.appendChild(spnBackTxt);
   btnBack.addEventListener('click', tornaSu);
-  radice.appendChild(btnBack);
 
-  // Titolo
   const h1 = document.createElement('h1');
+  h1.className = 'titolo-vista';
+  h1.style.margin = '0';
+  h1.style.flex = '1';
   h1.textContent = piano.nome;
-  radice.appendChild(h1);
 
-  // Badge tipo + origine
-  const meta = document.createElement('div');
-  meta.className = 'pillole';
-  meta.style.marginBottom = '12px';
-  const badgeTipo = document.createElement('button');
-  badgeTipo.textContent = piano.tipo;
-  badgeTipo.disabled = true;
-  const badgeOrigine = document.createElement('button');
-  badgeOrigine.textContent = piano.origine;
-  badgeOrigine.disabled = true;
-  meta.appendChild(badgeTipo);
-  meta.appendChild(badgeOrigine);
-  radice.appendChild(meta);
+  rigaBack.appendChild(btnBack);
+  rigaBack.appendChild(h1);
+  radice.appendChild(rigaBack);
+
+  // Badge tipo + origine come chip informativi
+  const metaRiga = document.createElement('div');
+  metaRiga.style.display = 'flex';
+  metaRiga.style.gap = '8px';
+  metaRiga.style.marginBottom = '12px';
+  const chipTipo = chip(piano.tipo, 'verde');
+  const chipOrigine = chip(piano.origine, 'verde');
+  metaRiga.appendChild(chipTipo);
+  metaRiga.appendChild(chipOrigine);
+  radice.appendChild(metaRiga);
 
   // Bottoni Modifica / Esporta
   const azioniBtns = document.createElement('div');
@@ -1218,12 +1310,20 @@ function renderDettaglioUtente(stato, radice, piano, tornaSu) {
 
   const btnModifica = document.createElement('button');
   btnModifica.className = 'secondario';
-  btnModifica.textContent = 'Modifica';
+  btnModifica.appendChild(icona('matita', 14));
+  const spnMod = document.createElement('span');
+  spnMod.style.marginLeft = '6px';
+  spnMod.textContent = 'Modifica';
+  btnModifica.appendChild(spnMod);
   btnModifica.addEventListener('click', () => apriEditor(radice, stato.store, piano, tornaSu));
 
   const btnEsporta = document.createElement('button');
   btnEsporta.className = 'secondario';
-  btnEsporta.textContent = 'Esporta';
+  btnEsporta.appendChild(icona('esporta', 14));
+  const spnEsp = document.createElement('span');
+  spnEsp.style.marginLeft = '6px';
+  spnEsp.textContent = 'Esporta';
+  btnEsporta.appendChild(spnEsp);
   btnEsporta.addEventListener('click', () => apriExport(piano));
 
   azioniBtns.appendChild(btnModifica);
@@ -1236,7 +1336,7 @@ function renderDettaglioUtente(stato, radice, piano, tornaSu) {
       const card = creaCard(pasto.titolo);
       for (const voce of pasto.voci ?? []) {
         const p = document.createElement('p');
-        p.style.fontSize = '14px';
+        p.className = 'footnote';
         p.style.padding = '3px 0';
         p.textContent = voce;
         card.appendChild(p);
@@ -1249,7 +1349,7 @@ function renderDettaglioUtente(stato, radice, piano, tornaSu) {
 
       // Giorni e/o date
       const giorniLabel = document.createElement('p');
-      giorniLabel.style.fontSize = '12px';
+      giorniLabel.className = 'footnote';
       giorniLabel.style.color = 'var(--testo3)';
       giorniLabel.style.marginBottom = '8px';
       const partiGiorni = [];
@@ -1271,12 +1371,11 @@ function renderDettaglioUtente(stato, radice, piano, tornaSu) {
         riga.style.gap = '2px';
 
         const nomeSpan = document.createElement('span');
-        nomeSpan.style.fontSize = '14px';
+        nomeSpan.className = 'headline';
         nomeSpan.textContent = es.nome;
 
         const dettaglio = document.createElement('span');
-        dettaglio.className = 'secondario';
-        dettaglio.style.fontSize = '12px';
+        dettaglio.className = 'secondario footnote';
         let det = `${es.serie} × ${es.reps}`;
         if (es.note) det += ` — ${es.note}`;
         dettaglio.textContent = det;
@@ -1289,7 +1388,7 @@ function renderDettaglioUtente(stato, radice, piano, tornaSu) {
       // Voci
       for (const voce of seduta.voci ?? []) {
         const p = document.createElement('p');
-        p.style.fontSize = '13px';
+        p.className = 'footnote';
         p.style.color = 'var(--testo2)';
         p.style.padding = '3px 0';
         p.textContent = voce;
@@ -1307,15 +1406,16 @@ function renderElenco(stato, radice) {
   const { store } = stato;
   radice.innerHTML = '';
 
-  // Intestazione con bottoni azione
+  // Intestazione con titolo-vista e bottoni azione
   const headerDiv = document.createElement('div');
-  headerDiv.style.display = 'flex';
-  headerDiv.style.justifyContent = 'space-between';
+  headerDiv.className = 'riga';
+  headerDiv.style.marginBottom = '16px';
   headerDiv.style.alignItems = 'center';
-  headerDiv.style.marginBottom = '14px';
 
   const h1 = document.createElement('h1');
+  h1.className = 'titolo-vista';
   h1.style.margin = '0';
+  h1.style.flex = '1';
   h1.textContent = 'Piani';
   headerDiv.appendChild(h1);
 
@@ -1324,13 +1424,26 @@ function renderElenco(stato, radice) {
   azioniHeader.style.gap = '8px';
 
   const btnNuovo = document.createElement('button');
-  btnNuovo.className = 'secondario';
-  btnNuovo.textContent = '+ Nuovo piano';
+  btnNuovo.className = 'primario';
+  btnNuovo.style.padding = '8px 14px';
+  btnNuovo.style.fontSize = '15px';
+  const icoPiu = icona('piu', 16);
+  icoPiu.style.marginRight = '4px';
+  btnNuovo.appendChild(icoPiu);
+  const spnNuovo = document.createElement('span');
+  spnNuovo.textContent = 'Nuovo piano';
+  btnNuovo.appendChild(spnNuovo);
   btnNuovo.addEventListener('click', () => apriEditor(radice, store, null, () => renderElenco(stato, radice)));
 
   const btnImporta = document.createElement('button');
   btnImporta.className = 'secondario';
-  btnImporta.textContent = 'Importa';
+  btnImporta.style.padding = '8px 14px';
+  btnImporta.style.fontSize = '15px';
+  btnImporta.appendChild(icona('importa', 16));
+  const spnImporta = document.createElement('span');
+  spnImporta.style.marginLeft = '4px';
+  spnImporta.textContent = 'Importa';
+  btnImporta.appendChild(spnImporta);
   btnImporta.addEventListener('click', () => apriImport(radice, store, () => renderElenco(stato, radice)));
 
   azioniHeader.appendChild(btnNuovo);
@@ -1342,57 +1455,73 @@ function renderElenco(stato, radice) {
   const attivi = piani.filter(p => p.stato === 'attivo');
   const archiviati = piani.filter(p => p.stato === 'archiviato');
 
-  function renderSezione(titolo, lista) {
+  function renderSezione(titoloSez, lista) {
     if (!lista.length) return;
 
-    const etichetta = document.createElement('div');
-    etichetta.className = 'eyebrow';
-    etichetta.style.marginBottom = '8px';
-    etichetta.style.marginTop = '4px';
-    etichetta.textContent = titolo;
-    radice.appendChild(etichetta);
+    radice.appendChild(intestazione(titoloSez));
 
-    for (const piano of lista) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.style.cursor = 'pointer';
+    const cardGruppo = document.createElement('div');
+    cardGruppo.className = 'card';
+    cardGruppo.style.marginBottom = '12px';
+    cardGruppo.style.padding = '4px 0';
 
-      // Nome + badge tipo
-      const headerCard = document.createElement('div');
-      headerCard.className = 'riga';
+    for (let pi = 0; pi < lista.length; pi++) {
+      const piano = lista[pi];
+      const isUltimo = pi === lista.length - 1;
+
+      const riga = document.createElement('div');
+      riga.style.cssText = [
+        'cursor:pointer', 'padding:12px 16px',
+        'gap:12px', 'align-items:flex-start', 'flex-direction:column',
+        'display:flex',
+        isUltimo ? '' : 'border-bottom:1px solid var(--bordo)',
+      ].join(';');
+
+      // Riga principale: icona tipo + testo + chevron
+      const rigaPrincipale = document.createElement('div');
+      rigaPrincipale.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%';
+
+      // Icona tipo
+      rigaPrincipale.appendChild(iconaTipoPiano(piano.tipo));
+
+      // Testo centrale
+      const testoWrap = document.createElement('div');
+      testoWrap.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px';
 
       const nomeSpan = document.createElement('span');
-      nomeSpan.className = 'primario cresci';
-      nomeSpan.style.fontWeight = '600';
+      nomeSpan.className = 'headline';
+      nomeSpan.style.overflow = 'hidden';
+      nomeSpan.style.textOverflow = 'ellipsis';
+      nomeSpan.style.whiteSpace = 'nowrap';
       nomeSpan.textContent = piano.nome;
 
-      const badgeTipo = document.createElement('span');
-      badgeTipo.style.fontSize = '11px';
-      badgeTipo.style.background = 'var(--card2)';
-      badgeTipo.style.border = '1px solid var(--bordo)';
-      badgeTipo.style.borderRadius = '8px';
-      badgeTipo.style.padding = '2px 8px';
-      badgeTipo.style.color = 'var(--testo2)';
-      badgeTipo.textContent = piano.tipo;
-
-      headerCard.appendChild(nomeSpan);
-      headerCard.appendChild(badgeTipo);
-      card.appendChild(headerCard);
-
-      // Origine + n° sedute/pasti
-      const metaRow = document.createElement('div');
-      metaRow.style.fontSize = '12px';
-      metaRow.style.color = 'var(--testo3)';
-      metaRow.style.marginTop = '4px';
+      const metaSpan = document.createElement('span');
+      metaSpan.className = 'footnote';
+      metaSpan.style.color = 'var(--testo2)';
       const nSedute = contaSedutePiano(piano);
       const labelN = piano.tipo === 'alimentare'
         ? `${nSedute} ${nSedute !== 1 ? 'pasti' : 'pasto'}`
         : `${nSedute} ${nSedute !== 1 ? 'sedute' : 'seduta'}`;
-      metaRow.textContent = `${piano.origine} · ${labelN}`;
-      card.appendChild(metaRow);
+      metaSpan.textContent = `${piano.origine} · ${labelN}`;
+
+      testoWrap.appendChild(nomeSpan);
+      testoWrap.appendChild(metaSpan);
+
+      // Badge stato
+      const badge = badgeStato(piano.stato);
+
+      // Chevron
+      const chev = icona('chevronDestra', 16);
+      chev.style.color = 'var(--testo3)';
+      chev.style.flexShrink = '0';
+
+      rigaPrincipale.appendChild(testoWrap);
+      rigaPrincipale.appendChild(badge);
+      rigaPrincipale.appendChild(chev);
+      riga.appendChild(rigaPrincipale);
 
       // Tap sulla card → dettaglio
-      card.addEventListener('click', e => {
+      riga.addEventListener('click', e => {
         // Solo se non cliccato su un bottone interno
         if (e.target.closest('button')) return;
         if (piano.id === 'programma-2026') {
@@ -1403,21 +1532,25 @@ function renderElenco(stato, radice) {
       });
 
       // Bottoni azione: Archivia/Riattiva sempre visibile; Elimina solo per editor/import archiviati
-      const isPrecaricato = piano.origine === 'precaricato';
       const isArchiviato = piano.stato === 'archiviato';
 
       {
         const btnRow = document.createElement('div');
         btnRow.style.display = 'flex';
         btnRow.style.gap = '8px';
-        btnRow.style.marginTop = '10px';
 
         // Archivia / Riattiva
         const btnToggle = document.createElement('button');
         btnToggle.className = 'secondario';
         btnToggle.style.fontSize = '13px';
         btnToggle.style.padding = '6px 12px';
-        btnToggle.textContent = isArchiviato ? 'Riattiva' : 'Archivia';
+        btnToggle.style.display = 'flex';
+        btnToggle.style.alignItems = 'center';
+        btnToggle.style.gap = '4px';
+        btnToggle.appendChild(icona('archivio', 14));
+        const spnToggle = document.createElement('span');
+        spnToggle.textContent = isArchiviato ? 'Riattiva' : 'Archivia';
+        btnToggle.appendChild(spnToggle);
         btnToggle.addEventListener('click', e => {
           e.stopPropagation();
           const lista = store.leggi('piani', []);
@@ -1433,11 +1566,16 @@ function renderElenco(stato, radice) {
         // Elimina (solo per editor/import in stato archiviato)
         if (isArchiviato && (piano.origine === 'editor' || piano.origine === 'import')) {
           const btnElimina = document.createElement('button');
-          btnElimina.className = 'secondario';
+          btnElimina.className = 'distruttivo';
           btnElimina.style.fontSize = '13px';
           btnElimina.style.padding = '6px 12px';
-          btnElimina.style.color = 'var(--rosso)';
-          btnElimina.textContent = 'Elimina';
+          btnElimina.style.display = 'flex';
+          btnElimina.style.alignItems = 'center';
+          btnElimina.style.gap = '4px';
+          btnElimina.appendChild(icona('cestino', 14));
+          const spnEl = document.createElement('span');
+          spnEl.textContent = 'Elimina';
+          btnElimina.appendChild(spnEl);
           btnElimina.addEventListener('click', e => {
             e.stopPropagation();
             if (confirm('Eliminare definitivamente questo piano? Lo storico esercizi resta.')) {
@@ -1450,15 +1588,17 @@ function renderElenco(stato, radice) {
           btnRow.appendChild(btnElimina);
         }
 
-        card.appendChild(btnRow);
+        riga.appendChild(btnRow);
       }
 
-      radice.appendChild(card);
+      cardGruppo.appendChild(riga);
     }
+
+    radice.appendChild(cardGruppo);
   }
 
-  renderSezione('Attivi', attivi);
-  renderSezione('Archiviati', archiviati);
+  renderSezione('ATTIVI', attivi);
+  renderSezione('ARCHIVIATI', archiviati);
 
   if (!attivi.length && !archiviati.length) {
     const vuoto = document.createElement('p');

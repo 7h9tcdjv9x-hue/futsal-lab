@@ -1,39 +1,367 @@
+/* ============================================================
+   Futsal Lab — Design System iOS
+   Token, reset, tipografia, componenti, motion
+   ============================================================ */
+
+/* 1. TOKEN */
 :root {
-  --sfondo: #101311; --card: #1B1F1B; --card2: #232823; --bordo: #33362F;
-  --testo: #ECECEA; --testo2: #B4B2A9; --testo3: #888780;
-  --verde: #97C459; --verde-scuro: #173404; --giallo: #EF9F27; --rosso: #E24B4A;
+  --sfondo:   #0A0C0A;
+  --sup1:     #161A16;
+  --sup2:     #212621;
+  --hairline: rgba(255,255,255,0.08);
+  --testo:    #F2F3F0;
+  --testo2:   #A8ADA6;
+  --testo3:   #6E736C;
+  --accento:  #A8D65C;
+  --on-accento: #1A2E08;
+  --verde:    #63CE7A;
+  --ambra:    #F5B23F;
+  --rosso:    #F06A5D;
+  --tinta-verde: #1c2b14;
+  --tinta-ambra: #2e2410;
+  --tinta-rosso: #2e1512;
+  --curva:    cubic-bezier(0.32, 0.72, 0, 1);
+  /* legacy aliases mantengono le viste R2-R4 funzionanti */
+  --card:     var(--sup1);
+  --card2:    var(--sup2);
+  --bordo:    var(--hairline);
+  --verde-scuro: var(--on-accento);
 }
-* { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
-body { background: var(--sfondo); color: var(--testo); font: 16px/1.5 -apple-system, system-ui, sans-serif;
-  padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
-#vista { padding: max(16px, env(safe-area-inset-top)) 16px 16px; max-width: 480px; margin: 0 auto; }
-#tabbar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: var(--card);
-  border-top: 1px solid var(--bordo); padding-bottom: env(safe-area-inset-bottom); }
-#tabbar button { flex: 1; background: none; border: 0; color: var(--testo3); font-size: 20px;
-  padding: 8px 0 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-#tabbar button span { font-size: 11px; }
-#tabbar button.attivo { color: var(--verde); }
-.card { background: var(--card); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+
+/* 2. RESET + BODY */
+*, *::before, *::after { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  background: var(--sfondo);
+  color: var(--testo);
+  font: 16px/1.5 -apple-system, system-ui, sans-serif;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+#vista {
+  padding: max(16px, env(safe-area-inset-top)) 16px 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* 3. SCALA TIPOGRAFICA */
+.large-title { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+.titolo-vista { font-size: 22px; font-weight: 700; }
+.headline { font-size: 17px; font-weight: 600; }
+.footnote { font-size: 13px; color: var(--testo2); }
+.sezione-titolo {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--testo3);
+  margin: 0 4px 6px;
+}
+/* tabular nums su metriche */
+.metrica, input[type="number"], .grafico-linea { font-variant-numeric: tabular-nums; }
+
+/* h1 legacy */
+h1 { font-size: 22px; font-weight: 700; margin: 4px 0 14px; }
+
+/* ============================================================
+   4. COMPONENTI
+   ============================================================ */
+
+/* CARD */
+.card {
+  background: var(--sup1);
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
 .card h2 { font-size: 13px; color: var(--testo2); font-weight: 500; margin-bottom: 10px; }
-h1 { font-size: 22px; font-weight: 600; margin: 4px 0 14px; }
-.eyebrow { font-size: 13px; color: var(--verde); font-weight: 500; }
-.riga { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+
+/* RIGA (lista interna a card) */
+.riga {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 0;
+}
+.riga + .riga { border-top: 1px solid var(--hairline); }
 .riga .cresci { flex: 1; }
-button.primario { background: var(--verde); color: var(--verde-scuro); border: 0; border-radius: 10px;
-  padding: 12px 16px; font-size: 16px; font-weight: 600; width: 100%; }
-button.secondario { background: var(--card2); color: var(--testo); border: 1px solid var(--bordo);
-  border-radius: 10px; padding: 10px 14px; font-size: 15px; }
-input, select, textarea { background: var(--card2); color: var(--testo); border: 1px solid var(--bordo);
-  border-radius: 10px; padding: 10px; font-size: 16px; width: 100%; }
-input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--verde); }
+
+/* SPUNTA CIRCOLARE */
+.spunta-c {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #3a403a;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: transparent;
+  transition: border-color .15s;
+}
+.spunta-c.fatta {
+  background: var(--accento);
+  border-color: var(--accento);
+  color: var(--on-accento);
+  animation: spunta-pop .25s var(--curva);
+}
+@keyframes spunta-pop {
+  0%   { transform: scale(.8); }
+  70%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* SEGMENTED CONTROL */
+.segmented {
+  display: flex;
+  background: var(--sup2);
+  border-radius: 999px;
+  padding: 4px;
+  position: relative;
+  margin-bottom: 12px;
+}
+.segmented-thumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  height: calc(100% - 8px);
+  width: calc((100% - 8px) / var(--seg-count, 2));
+  background: var(--accento);
+  border-radius: 999px;
+  transition: transform .25s var(--curva);
+  pointer-events: none;
+}
+.segmented-voce {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--testo2);
+  padding: 6px 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  border-radius: 999px;
+  transition: color .2s;
+}
+.segmented-voce.attiva { color: var(--on-accento); }
+
+/* TAB BAR */
+#tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: rgba(10,12,10,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--hairline);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+#tabbar button {
+  flex: 1;
+  background: none;
+  border: 0;
+  color: var(--testo3);
+  padding: 8px 0 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+#tabbar button .icona-tab svg { width: 22px; height: 22px; }
+#tabbar button span:not(.icona-tab) { font-size: 10px; font-weight: 500; }
+#tabbar button.attivo { color: var(--accento); }
+
+/* BOTTONI */
+button.primario {
+  background: var(--accento);
+  color: var(--on-accento);
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 17px;
+  font-weight: 600;
+  width: 100%;
+  height: 48px;
+  cursor: pointer;
+}
+button.secondario {
+  background: var(--sup2);
+  color: var(--testo);
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 15px;
+  cursor: pointer;
+}
+button.distruttivo {
+  background: var(--tinta-rosso);
+  color: var(--rosso);
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 15px;
+  cursor: pointer;
+}
+button.primario:active,
+button.secondario:active,
+button.distruttivo:active {
+  transform: scale(.97);
+  filter: brightness(.92);
+  transition: transform .12s, filter .12s;
+}
+
+/* INPUT */
+input, select, textarea {
+  background: var(--sup2);
+  color: var(--testo);
+  border: 0;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 16px;
+  width: 100%;
+  height: 48px;
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--accento);
+}
+input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accento); }
+textarea { height: auto; }
+
+/* CHIP */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+.chip-verde { background: var(--tinta-verde); color: var(--verde); }
+.chip-ambra  { background: var(--tinta-ambra); color: var(--ambra); }
+.chip-rosso  { background: var(--tinta-rosso); color: var(--rosso); }
+
+/* METRICA */
+.metrica {
+  background: var(--sup1);
+  border-radius: 16px;
+  padding: 10px 12px;
+  font-variant-numeric: tabular-nums;
+}
+.metrica .etichetta { font-size: 11px; color: var(--testo3); text-transform: uppercase; letter-spacing: .4px; }
+.metrica .valore { font-size: 19px; font-weight: 700; }
+
+/* HERO */
+.hero {
+  border-radius: 18px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.hero-verde { background: var(--tinta-verde); color: var(--verde); }
+.hero-ambra  { background: var(--tinta-ambra); color: var(--ambra); }
+.hero-rosso  { background: var(--tinta-rosso); color: var(--rosso); }
+
+/* GEAR BTN */
+.gear-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--sup1);
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--testo2);
+  padding: 0;
+}
+.gear-btn:active { transform: scale(.94); transition: transform .12s; }
+
+/* STATO VUOTO */
+.stato-vuoto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  gap: 8px;
+  color: var(--testo3);
+  text-align: center;
+}
+.stato-vuoto svg { opacity: .6; }
+.stato-vuoto .titolo-vuoto { font-size: 17px; font-weight: 600; color: var(--testo); }
+.stato-vuoto .sotto-vuoto { font-size: 13px; color: var(--testo2); }
+
+/* ============================================================
+   CLASSI LEGACY — mantenute per compatibilità viste R2-R4
+   ============================================================ */
+
+/* .eyebrow: usato come intestazione colorata / testo accent */
+.eyebrow { font-size: 13px; color: var(--accento); font-weight: 500; }
+
+/* testo primario/secondario (span, div di testo — non solo button) */
+.primario { color: var(--testo); font-weight: 600; }
+.secondario { color: var(--testo2); }
+
+/* .pillole: pill filter row (progressi, dieta, piani) */
 .pillole { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-.pillole button { border-radius: 20px; padding: 6px 14px; font-size: 13px; border: 0;
-  background: var(--card); color: var(--testo2); }
-.pillole button.attivo { background: var(--verde); color: var(--verde-scuro); font-weight: 600; }
+.pillole button {
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 0;
+  background: var(--sup1);
+  color: var(--testo2);
+  cursor: pointer;
+}
+.pillole button.attivo { background: var(--accento); color: var(--on-accento); font-weight: 600; }
+
+/* .griglia2: griglia metrica 2 colonne */
 .griglia2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.metrica { background: var(--card); border-radius: 14px; padding: 10px 12px; }
-.metrica .etichetta { font-size: 11px; color: var(--testo3); }
-.metrica .valore { font-size: 18px; font-weight: 600; }
-.banner { border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; }
-.banner.avviso { background: #3a2f12; color: #FAC775; }
+
+/* .banner: alert/avviso generico */
+.banner { border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; }
+.banner.avviso { background: var(--tinta-ambra); color: var(--ambra); }
+
+/* .spento: testo completato/disabilitato */
 .spento { color: var(--testo3); text-decoration: line-through; }
+
+/* .cresci: flex grow helper */
+.cresci { flex: 1; }
+
+/* ============================================================
+   5. MOTION
+   ============================================================ */
+
+/* Cambio vista: fade + slide up */
+#vista.entra {
+  animation: entra-vista .24s var(--curva);
+}
+@keyframes entra-vista {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Grafico line draw-in */
+.grafico-linea {
+  animation: traccia .6s var(--curva);
+}
+@keyframes traccia {
+  from { stroke-dashoffset: 1000; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

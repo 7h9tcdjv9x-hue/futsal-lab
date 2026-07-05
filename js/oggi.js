@@ -1,9 +1,16 @@
 import { faseCorrente, FASI, TEMPLATE_STAGIONE, SEDUTE, CALENDARIO } from './programma.js';
 import { sedutePerGiorno } from './piani.js';
-import { apriSeduta } from './seduta.js';
+import { apriSeduta, ultimaVolta, slugEsercizio } from './seduta.js';
 import { testInRitardo } from './calcoli.js';
 import { consiglioGiorno, fasciaRecupero, sincronizza } from './whoop.js';
 import { backupInRitardo } from './impostazioni.js';
+import {
+  spuntaCircolare,
+  anelloProgresso,
+  chip,
+  intestazione,
+} from './ui.js';
+import { icona } from './icone.js';
 
 // Timestamp modulo-level per il guard anti-loop (al massimo 1 sync ogni 5 minuti)
 let _ultimoTentativoSync = 0;
@@ -40,96 +47,257 @@ export function vistaOggi(stato, radice) {
   const { store, oggi } = stato;
   radice.innerHTML = '';
 
-  // ── 0. Promemoria container (task 11/14 riempiranno questo) ──────────────
+  // ── 0. Promemoria container ───────────────────────────────────────────────
   const divPromemoriaWrapper = document.createElement('div');
   divPromemoriaWrapper.id = 'promemoria';
   radice.appendChild(divPromemoriaWrapper);
 
-  // Test reminder banner (Task 11)
+  // Test reminder (chip ambra)
   if (testInRitardo(store, oggi)) {
-    const banner = document.createElement('div');
-    banner.className = 'banner avviso';
-    banner.textContent = 'È ora dei test! Ogni 3-4 settimane misura sprint, salto, trazioni, piegamenti.';
-    divPromemoriaWrapper.appendChild(banner);
+    divPromemoriaWrapper.appendChild(
+      chip('È ora dei test! Ogni 3-4 settimane misura sprint, salto, trazioni, piegamenti.', 'ambra')
+    );
   }
 
-  // Backup reminder banner (Task 14)
+  // Backup reminder (chip ambra)
   if (backupInRitardo(store, oggi)) {
-    const bannerBackup = document.createElement('div');
-    bannerBackup.className = 'banner avviso';
-    bannerBackup.textContent = 'Sono passati più di 7 giorni dall\'ultimo backup — esportalo dalle Impostazioni ⚙';
-    divPromemoriaWrapper.appendChild(bannerBackup);
+    divPromemoriaWrapper.appendChild(
+      chip("Sono passati più di 7 giorni dall'ultimo backup — esportalo dalle Impostazioni.", 'ambra')
+    );
   }
 
-  // ── 1. Eyebrow: data + fase + bottone Impostazioni ────────────────────────
+  // ── 1. Header: data MAIUSCOLA · large-title saluto · footnote fase · gear ──
   const fase = faseCorrente(oggi);
+
+  // Data MAIUSCOLA (es. "GIOVEDÌ 9 LUGLIO")
   const dataFormattata = new Date(oggi + 'T12:00:00').toLocaleDateString('it-IT', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  });
+    weekday: 'long', month: 'long', day: 'numeric',
+  }).toUpperCase();
 
-  const eyebrow = document.createElement('div');
-  eyebrow.className = 'eyebrow';
-  eyebrow.style.display = 'flex';
-  eyebrow.style.justifyContent = 'space-between';
-  eyebrow.style.alignItems = 'flex-start';
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;';
 
-  const eyebrowTesti = document.createElement('div');
-  const eyebrowPrimario = document.createElement('span');
-  eyebrowPrimario.className = 'primario';
-  eyebrowPrimario.textContent = capitalizza(dataFormattata);
-  eyebrowTesti.appendChild(eyebrowPrimario);
+  const headerLeft = document.createElement('div');
 
-  // Saluto con nome (Task 14)
+  const dataEl = document.createElement('div');
+  dataEl.className = 'sezione-titolo';
+  dataEl.style.margin = '0 0 2px 0';
+  dataEl.textContent = dataFormattata;
+  headerLeft.appendChild(dataEl);
+
+  // Saluto large-title
   const profilo = store.leggi('profilo', {});
-  if (profilo.nome) {
-    const saluto = document.createElement('p');
-    saluto.className = 'secondario';
-    saluto.textContent = 'Ciao ' + profilo.nome;
-    eyebrowTesti.appendChild(saluto);
-  }
+  const salutoEl = document.createElement('div');
+  salutoEl.className = 'large-title';
+  salutoEl.textContent = profilo.nome ? 'Ciao ' + profilo.nome : 'Oggi';
+  headerLeft.appendChild(salutoEl);
 
-  const eyebrowSecondario = document.createElement('span');
-  eyebrowSecondario.className = 'secondario';
-  eyebrowSecondario.textContent = fase.nome + (fase.sotto ? ' · ' + fase.sotto : '');
-  eyebrowTesti.appendChild(eyebrowSecondario);
+  // Fase corrente in lime footnote/500
+  const faseEl = document.createElement('div');
+  faseEl.className = 'footnote';
+  faseEl.style.cssText = 'color:var(--accento);font-weight:500;margin-top:2px;';
+  faseEl.textContent = fase.nome + (fase.sotto ? ' · ' + fase.sotto : '');
+  headerLeft.appendChild(faseEl);
 
-  eyebrow.appendChild(eyebrowTesti);
+  header.appendChild(headerLeft);
 
-  // Bottone ⚙ Impostazioni
+  // Gear button a destra
   const btnImpostazioni = document.createElement('button');
-  btnImpostazioni.className = 'secondario';
+  btnImpostazioni.className = 'gear-btn';
   btnImpostazioni.setAttribute('aria-label', 'Impostazioni');
-  btnImpostazioni.textContent = '⚙';
-  btnImpostazioni.style.fontSize = '1.2rem';
-  btnImpostazioni.style.padding = '4px 8px';
-  btnImpostazioni.style.marginLeft = '8px';
-  btnImpostazioni.style.flexShrink = '0';
+  btnImpostazioni.appendChild(icona('ingranaggio', 17));
   btnImpostazioni.addEventListener('click', () => {
     import('./app.js').then(({ naviga }) => naviga('impostazioni'));
   });
-  eyebrow.appendChild(btnImpostazioni);
+  header.appendChild(btnImpostazioni);
 
-  radice.appendChild(eyebrow);
+  radice.appendChild(header);
 
-  // ── 2. Sedute di oggi ─────────────────────────────────────────────────────
+  // ── 2. Anello abitudini (card espandibile) ────────────────────────────────
+  const abitudini = abitudiniGiorno(store, oggi);
+  const n = abitudini.filter(Boolean).length;
+  const tutteFatte = n === 5;
+
+  // Stato espansione: espansa se n < 5, collassata se 5/5
+  // Usiamo un flag in un oggetto locale che persiste nel re-render tramite attributo
+  const cardAbitudini = document.createElement('div');
+  cardAbitudini.className = 'card';
+  cardAbitudini.style.cursor = 'pointer';
+
+  // Stato iniziale espansione
+  let espansa = !tutteFatte;
+
+  // Header riga anello + testi + chevron
+  const rigaAnello = document.createElement('div');
+  rigaAnello.style.cssText = 'display:flex;align-items:center;gap:12px;';
+
+  const anello = anelloProgresso(n / 5, { size: 52, spess: 6, testo: n + '/5' });
+  rigaAnello.appendChild(anello);
+
+  const abTesti = document.createElement('div');
+  abTesti.style.flex = '1';
+
+  const abTitolo = document.createElement('div');
+  abTitolo.className = 'headline';
+  abTitolo.textContent = 'Abitudini di oggi';
+  abTesti.appendChild(abTitolo);
+
+  const abSottotitolo = document.createElement('div');
+  abSottotitolo.className = 'footnote';
+  abSottotitolo.style.marginTop = '2px';
+
+  if (tutteFatte) {
+    abSottotitolo.textContent = 'Tutte fatte!';
+  } else {
+    const nonFatte = ABITUDINI.filter((_, i) => !abitudini[i]);
+    if (nonFatte.length === 1) {
+      abSottotitolo.textContent = 'Ti manca ' + nonFatte[0];
+    } else if (nonFatte.length === 2) {
+      abSottotitolo.textContent = 'Ti mancano ' + nonFatte[0] + ' e ' + nonFatte[1];
+    } else {
+      abSottotitolo.textContent = 'Ti mancano ' + nonFatte.length + ' abitudini';
+    }
+  }
+  abTesti.appendChild(abSottotitolo);
+
+  rigaAnello.appendChild(abTesti);
+
+  const chevronEl = document.createElement('span');
+  chevronEl.style.color = 'var(--testo3)';
+  chevronEl.appendChild(espansa ? icona('chevronGiu', 18) : icona('chevronDestra', 18));
+  rigaAnello.appendChild(chevronEl);
+
+  cardAbitudini.appendChild(rigaAnello);
+
+  // Elenco spunte (sotto)
+  const listaAbitudini = document.createElement('div');
+  listaAbitudini.style.display = espansa ? 'block' : 'none';
+  listaAbitudini.style.marginTop = '8px';
+
+  for (let i = 0; i < ABITUDINI.length; i++) {
+    const riga = document.createElement('div');
+    riga.className = 'riga';
+    riga.style.cursor = 'pointer';
+
+    const spunta = spuntaCircolare(abitudini[i]);
+    riga.appendChild(spunta);
+
+    const nomeEl = document.createElement('div');
+    nomeEl.style.flex = '1';
+    nomeEl.className = abitudini[i] ? 'footnote' : '';
+    nomeEl.style.color = abitudini[i] ? 'var(--testo2)' : 'var(--testo)';
+    nomeEl.textContent = ABITUDINI[i];
+    riga.appendChild(nomeEl);
+
+    const toggleAbitudine = () => {
+      spuntaAbitudine(store, oggi, i, !abitudini[i]);
+      vistaOggi(stato, radice);
+    };
+
+    spunta.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAbitudine();
+    });
+    riga.addEventListener('click', toggleAbitudine);
+
+    listaAbitudini.appendChild(riga);
+  }
+
+  cardAbitudini.appendChild(listaAbitudini);
+
+  // Toggle espansione su click card (area anello/header)
+  rigaAnello.addEventListener('click', () => {
+    espansa = !espansa;
+    listaAbitudini.style.display = espansa ? 'block' : 'none';
+    chevronEl.innerHTML = '';
+    chevronEl.appendChild(espansa ? icona('chevronGiu', 18) : icona('chevronDestra', 18));
+  });
+
+  radice.appendChild(cardAbitudini);
+
+  // ── 3. Hero recupero (sostituisce #consiglio-giorno e riga sync) ──────────
+  const whoopDati = store.leggi('whoop', {});
+  const _whoopRaw = whoopDati[oggi] ?? {};
+  const whoopOggi = { ..._whoopRaw, strain: _whoopRaw.strain ?? _whoopRaw.strainIeri };
+
+  const recuperoNum = typeof whoopOggi.recupero === 'number'
+    ? whoopOggi.recupero
+    : parseFloat(whoopOggi.recupero);
+  const fasciaStr = fasciaRecupero(Number.isNaN(recuperoNum) ? null : recuperoNum);
+
+  // Mappa fascia: 'giallo' → 'ambra' per le classi CSS
+  const fasciaCSS = fasciaStr === 'giallo' ? 'ambra' : fasciaStr;
+
+  if (fasciaCSS) {
+    const consiglio = consiglioGiorno(Number.isNaN(recuperoNum) ? null : recuperoNum);
+    const hero = document.createElement('div');
+    hero.className = 'hero hero-' + fasciaCSS;
+    hero.style.cssText = 'display:flex;align-items:center;gap:12px;';
+
+    const miniAnello = anelloProgresso(recuperoNum / 100, { size: 36, spess: 4, testo: String(Math.round(recuperoNum)) });
+    hero.appendChild(miniAnello);
+
+    const heroTesti = document.createElement('div');
+    heroTesti.style.flex = '1';
+
+    const heroTitolo = document.createElement('div');
+    heroTitolo.className = 'headline';
+    if (fasciaCSS === 'verde') {
+      heroTitolo.textContent = 'Recupero alto';
+    } else if (fasciaCSS === 'ambra') {
+      heroTitolo.textContent = 'Recupero medio';
+    } else {
+      heroTitolo.textContent = 'Recupero basso';
+    }
+    heroTesti.appendChild(heroTitolo);
+
+    if (consiglio) {
+      const heroSotto = document.createElement('div');
+      heroSotto.className = 'footnote';
+      heroSotto.style.marginTop = '2px';
+      let testoSotto = consiglio.testo;
+      // Aggiungi "· sync HH:MM" solo se fonte === 'sync'
+      if (whoopOggi.fonte === 'sync') {
+        const p = store.leggi('whoopPonte', {});
+        if (p.ultimaSync) {
+          const orario = new Date(p.ultimaSync).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+          // Usiamo due nodi testo separati per rispettare textContent discipline
+          heroSotto.textContent = testoSotto;
+          const syncNode = document.createTextNode(' · sync ' + orario);
+          heroSotto.appendChild(syncNode);
+        } else {
+          heroSotto.textContent = testoSotto;
+        }
+      } else {
+        heroSotto.textContent = testoSotto;
+      }
+      heroTesti.appendChild(heroSotto);
+    }
+
+    hero.appendChild(heroTesti);
+    radice.appendChild(hero);
+  }
+
+  // ── 4. Context card: stagione OR riposo ───────────────────────────────────
   const piani = store.leggi('piani', []);
   const sedute = sedutePerGiorno(piani, oggi);
   const seduteDati = store.leggi('sedute', {});
   const calOggi = CALENDARIO[oggi];
 
-  // Context card: stagione OR riposo (mutually exclusive, in that order)
   if (fase.stagione) {
-    // Card stagione: TEMPLATE_STAGIONE + toggle giorno club + bottoni rapidi
     const cardStagione = creaCard('Stagione — mantenimento');
     const stagioneDati = store.leggi('stagione', { giorniClub: [] });
     const giorniClub = stagioneDati.giorniClub ?? [];
     const isClub = giorniClub.includes(oggi);
 
-    // Toggle giornata club
     const toggleClub = document.createElement('label');
     toggleClub.className = 'riga';
-    toggleClub.innerHTML = `<span>Oggi giornata club</span><input type="checkbox" ${isClub ? 'checked' : ''}>`;
-    toggleClub.querySelector('input').addEventListener('change', e => {
+    const toggleSpan = document.createElement('span');
+    toggleSpan.textContent = 'Oggi giornata club';
+    const toggleChk = document.createElement('input');
+    toggleChk.type = 'checkbox';
+    if (isClub) toggleChk.checked = true;
+    toggleChk.addEventListener('change', e => {
       const st = store.leggi('stagione', { giorniClub: [] });
       const gc = st.giorniClub ?? [];
       if (e.target.checked) { if (!gc.includes(oggi)) gc.push(oggi); }
@@ -138,9 +306,10 @@ export function vistaOggi(stato, radice) {
       store.scrivi('stagione', st);
       vistaOggi(stato, radice);
     });
+    toggleClub.appendChild(toggleSpan);
+    toggleClub.appendChild(toggleChk);
     cardStagione.appendChild(toggleClub);
 
-    // Voci TEMPLATE_STAGIONE
     for (const voce of TEMPLATE_STAGIONE.voci) {
       const p = document.createElement('p');
       p.className = 'secondario';
@@ -148,13 +317,11 @@ export function vistaOggi(stato, radice) {
       cardStagione.appendChild(p);
     }
 
-    // Regola in evidenza
     const regola = document.createElement('p');
     regola.className = 'banner avviso';
     regola.textContent = TEMPLATE_STAGIONE.regola;
     cardStagione.appendChild(regola);
 
-    // Bottoni rapidi Fm, T, V, REC
     const bottoniRapidi = document.createElement('div');
     bottoniRapidi.className = 'pillole';
     for (const codice of ['Fm', 'T', 'V', 'REC']) {
@@ -176,7 +343,6 @@ export function vistaOggi(stato, radice) {
     radice.appendChild(cardStagione);
 
   } else if (calOggi !== undefined && calOggi.length === 0) {
-    // Giorno scarico
     const cardScarico = creaCard('Riposo');
     const msg = document.createElement('p');
     msg.className = 'primario';
@@ -185,83 +351,143 @@ export function vistaOggi(stato, radice) {
     radice.appendChild(cardScarico);
   }
 
-  // Sedute card: independent — shown whenever there are user-plan sessions
+  // ── 5. Card sedute di oggi ────────────────────────────────────────────────
   if (sedute.length > 0) {
-    const cardSedute = creaCard('Sedute di oggi');
+    radice.appendChild(intestazione('SEDUTE DI OGGI'));
+
+    const cardSedute = document.createElement('div');
+    cardSedute.className = 'card';
     const sd = store.leggi('sedute', {});
 
     for (const { pianoId, pianoNome, seduta, momento } of sedute) {
       const chiave = chiaveSeduta(pianoId, seduta.codice ?? seduta.id);
       const fatta = !!(sd[oggi] && sd[oggi][chiave]);
+
       const riga = document.createElement('div');
-      riga.className = 'riga' + (fatta ? ' spento' : '');
-
-      const left = document.createElement('div');
-      if (momento) {
-        const spanMomento = document.createElement('span');
-        spanMomento.className = 'eyebrow';
-        spanMomento.textContent = momento;
-        left.appendChild(spanMomento);
-      }
-      const spanTitolo = document.createElement('span');
-      spanTitolo.className = 'primario';
-      spanTitolo.textContent = (fatta ? '✓ ' : '') + seduta.titolo;
-      left.appendChild(spanTitolo);
-      if (pianoId !== 'programma-2026') {
-        const spanPiano = document.createElement('span');
-        spanPiano.className = 'secondario';
-        spanPiano.textContent = pianoNome;
-        left.appendChild(spanPiano);
-      }
-
-      riga.appendChild(left);
+      riga.className = 'riga';
       riga.style.cursor = 'pointer';
 
+      // Spunta circolare
+      const spuntaBtn = spuntaCircolare(fatta);
+
+      // Contenuto principale
+      const left = document.createElement('div');
+      left.style.flex = '1';
+
+      // Titolo seduta (15px/500, secondario se fatta)
+      const spanTitolo = document.createElement('div');
+      spanTitolo.style.cssText = 'font-size:15px;font-weight:500;' + (fatta ? 'color:var(--testo2)' : 'color:var(--testo)');
+      spanTitolo.textContent = seduta.titolo;
+      left.appendChild(spanTitolo);
+
+      // Sottotitolo footnote: momento + "da battere" se esercizi
+      const sottoTesto = [];
+      if (momento) sottoTesto.push(momento);
+
+      // "da battere" solo per sedute con esercizi
       if (seduta.esercizi && seduta.esercizi.length > 0) {
-        // Ha esercizi → apri seduta (Task 7)
-        riga.addEventListener('click', () => apriSeduta(stato, { pianoId, pianoNome, seduta, momento }));
-      } else if (seduta.voci && seduta.voci.length > 0) {
-        // Solo voci → toggle fatta
-        riga.addEventListener('click', () => {
+        const primoEsercizio = seduta.esercizi[0];
+        const slug = slugEsercizio(primoEsercizio.nome);
+        const ultima = ultimaVolta(store, slug, oggi);
+        if (ultima && ultima.serie && ultima.serie.length > 0) {
+          const best = migliorSerie(ultima.serie);
+          if (best) {
+            sottoTesto.push('da battere: ' + best.kg + ' kg × ' + best.reps);
+          }
+        }
+      }
+
+      if (sottoTesto.length > 0) {
+        const spanSotto = document.createElement('div');
+        spanSotto.className = 'footnote';
+        spanSotto.style.marginTop = '2px';
+        spanSotto.textContent = sottoTesto.join(' · ');
+        left.appendChild(spanSotto);
+      }
+
+      riga.appendChild(spuntaBtn);
+      riga.appendChild(left);
+
+      const haEsercizi = seduta.esercizi && seduta.esercizi.length > 0;
+      const haVoci = seduta.voci && seduta.voci.length > 0;
+
+      if (haEsercizi) {
+        // Chevron a destra (la riga apre il registro)
+        const chevron = document.createElement('span');
+        chevron.style.color = 'var(--testo3)';
+        chevron.appendChild(icona('chevronDestra', 16));
+        riga.appendChild(chevron);
+
+        // Spunta: segna fatta senza aprire
+        spuntaBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const sdt = store.leggi('sedute', {});
           if (!sdt[oggi]) sdt[oggi] = {};
           sdt[oggi][chiave] = !(sdt[oggi][chiave] === true);
           store.scrivi('sedute', sdt);
           vistaOggi(stato, radice);
         });
+
+        // Riga: apri registro seduta
+        riga.addEventListener('click', () => apriSeduta(stato, { pianoId, pianoNome, seduta, momento }));
+
+      } else if (haVoci) {
+        // Toggle su riga (solo voci)
+        const toggle = () => {
+          const sdt = store.leggi('sedute', {});
+          if (!sdt[oggi]) sdt[oggi] = {};
+          sdt[oggi][chiave] = !(sdt[oggi][chiave] === true);
+          store.scrivi('sedute', sdt);
+          vistaOggi(stato, radice);
+        };
+        spuntaBtn.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+        riga.addEventListener('click', toggle);
       }
 
       cardSedute.appendChild(riga);
     }
+
     radice.appendChild(cardSedute);
   }
 
-  // ── 3. Check-in Whoop ─────────────────────────────────────────────────────
-  const whoopDati = store.leggi('whoop', {});
-  const _whoopRaw = whoopDati[oggi] ?? {};
-  // Migrate legacy strainIeri key → strain (one-time fallback, no data loss)
-  const whoopOggi = { ..._whoopRaw, strain: _whoopRaw.strain ?? _whoopRaw.strainIeri };
-  const cardWhoop = creaCardWhoop('Check-in Whoop', whoopOggi.fonte === 'sync');
+  // ── 6. Check-in Whoop ─────────────────────────────────────────────────────
+  const cardWhoop = document.createElement('div');
+  cardWhoop.className = 'card';
+
+  // Intestazione card Whoop
+  const whoopTitolo = document.createElement('div');
+  whoopTitolo.style.cssText = 'font-size:13px;color:var(--testo2);font-weight:500;margin-bottom:10px;';
+  whoopTitolo.textContent = 'Check-in Whoop';
+  cardWhoop.appendChild(whoopTitolo);
 
   const campiWhoop = [
-    { label: 'Recupero (%)', key: 'recupero', min: 0, max: 100, step: 1 },
-    { label: 'HRV (ms)', key: 'hrv', min: 10, max: 250, step: 1 },
-    { label: 'FC riposo (bpm)', key: 'fcRiposo', min: 30, max: 120, step: 1 },
-    { label: 'Ore sonno', key: 'sonnoOre', min: 0, max: 14, step: 0.1 },
-    { label: 'Strain di ieri', key: 'strain', min: 0, max: 21, step: 0.1 },
+    { label: 'Recupero (%)', key: 'recupero', min: 0, max: 100, step: 1, icnNome: 'grafico' },
+    { label: 'HRV (ms)', key: 'hrv', min: 10, max: 250, step: 1, icnNome: 'onda' },
+    { label: 'FC riposo (bpm)', key: 'fcRiposo', min: 30, max: 120, step: 1, icnNome: 'cuore' },
+    { label: 'Ore sonno', key: 'sonnoOre', min: 0, max: 14, step: 0.1, icnNome: 'luna' },
+    { label: 'Strain di ieri', key: 'strain', min: 0, max: 21, step: 0.1, icnNome: 'fiamma' },
   ];
 
-  for (const { label, key, min, max, step } of campiWhoop) {
+  for (const { label, key, min, max, step, icnNome } of campiWhoop) {
     const riga = document.createElement('div');
     riga.className = 'riga';
+
+    // Icona + etichetta a sinistra
+    const etichettaWrap = document.createElement('div');
+    etichettaWrap.style.cssText = 'display:flex;align-items:center;gap:8px;flex:1;color:var(--testo2);';
+    etichettaWrap.appendChild(icona(icnNome, 16));
     const lbl = document.createElement('label');
     lbl.textContent = label;
+    lbl.style.fontSize = '15px';
+    etichettaWrap.appendChild(lbl);
+
     const inp = document.createElement('input');
     inp.type = 'number';
     inp.min = min;
     inp.max = max;
     inp.step = step;
     inp.value = whoopOggi[key] ?? '';
+    inp.style.cssText = 'width:90px;flex-shrink:0;';
     inp.addEventListener('change', () => {
       const v = parseFloat(inp.value);
       if (isNaN(v) || v < min || v > max) { inp.value = whoopOggi[key] ?? ''; return; }
@@ -270,86 +496,50 @@ export function vistaOggi(stato, radice) {
       wd[oggi][key] = v;
       wd[oggi].fonte = 'manuale';
       store.scrivi('whoop', wd);
-      // Re-render to update habit auto-check
       vistaOggi(stato, radice);
     });
-    riga.appendChild(lbl);
+
+    riga.appendChild(etichettaWrap);
     riga.appendChild(inp);
     cardWhoop.appendChild(riga);
   }
 
-  // Contenitore consiglio del giorno (Task 12)
-  const consiglioDiv = document.createElement('div');
-  consiglioDiv.id = 'consiglio-giorno';
-  renderConsiglioGiorno(consiglioDiv, whoopOggi.recupero);
-  cardWhoop.appendChild(consiglioDiv);
-
-  // Riga "Sincronizzato alle HH:MM" (Task 17) — visibile solo se ultimaSync presente
-  const p = store.leggi('whoopPonte', {});
-  if (p.ultimaSync) {
-    const rigaSync = document.createElement('p');
-    rigaSync.id = 'whoop-ultima-sync';
-    rigaSync.className = 'secondario';
-    const orario = new Date(p.ultimaSync).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-    rigaSync.textContent = `Sincronizzato alle ${orario}`;
-    cardWhoop.appendChild(rigaSync);
-  }
-
   radice.appendChild(cardWhoop);
 
-  // ── 4. Abitudini di oggi ──────────────────────────────────────────────────
-  const abitudini = abitudiniGiorno(store, oggi);
-  const n = abitudini.filter(Boolean).length;
-  const cardAbitudini = creaCard(`Abitudini di oggi · ${n} su 5`);
-
-  for (let i = 0; i < ABITUDINI.length; i++) {
-    const riga = document.createElement('label');
-    riga.className = 'riga';
-    const testo = document.createElement('span');
-    testo.textContent = ABITUDINI[i];
-    const chk = document.createElement('input');
-    chk.type = 'checkbox';
-    chk.checked = abitudini[i];
-    // Indice 4 può essere auto-spuntato da whoop; non bloccare l'interazione manuale
-    chk.addEventListener('change', () => {
-      spuntaAbitudine(store, oggi, i, chk.checked);
-      vistaOggi(stato, radice);
-    });
-    riga.appendChild(testo);
-    riga.appendChild(chk);
-    cardAbitudini.appendChild(riga);
-  }
-
-  radice.appendChild(cardAbitudini);
-
-  // ── 5. Griglia metriche: peso + prossima fase ─────────────────────────────
+  // ── 7. Griglia metriche: peso rapido + prossima fase ─────────────────────
   const griglia = document.createElement('div');
   griglia.className = 'griglia2';
 
-  // Peso
+  // Metrica peso
   const metricaPeso = document.createElement('div');
   metricaPeso.className = 'metrica';
+
   const listaPeso = store.leggi('peso', []);
   const ultimoPeso = listaPeso.length ? listaPeso[listaPeso.length - 1] : null;
-  const pesoEtichetta = document.createElement('span');
+
+  const pesoEtichetta = document.createElement('div');
   pesoEtichetta.className = 'etichetta';
   pesoEtichetta.textContent = 'Peso';
   metricaPeso.appendChild(pesoEtichetta);
-  const pesoValore = document.createElement('span');
+
+  const pesoValore = document.createElement('div');
   pesoValore.className = 'valore';
   pesoValore.textContent = ultimoPeso ? ultimoPeso.kg + ' kg' : '—';
   metricaPeso.appendChild(pesoValore);
 
-  // Input rapido peso
-  const rowPeso = document.createElement('div');
-  rowPeso.className = 'riga';
+  // Input rapido peso h48 + button primario compatto
   const inputPeso = document.createElement('input');
   inputPeso.type = 'number';
   inputPeso.min = 30;
   inputPeso.max = 120;
   inputPeso.step = 0.1;
   inputPeso.placeholder = 'kg';
+  inputPeso.style.cssText = 'height:48px;margin-top:8px;';
+  metricaPeso.appendChild(inputPeso);
+
   const btnSalvaPeso = document.createElement('button');
+  btnSalvaPeso.className = 'primario';
+  btnSalvaPeso.style.cssText = 'height:36px;font-size:14px;margin-top:6px;';
   btnSalvaPeso.textContent = 'Salva';
   btnSalvaPeso.addEventListener('click', () => {
     const v = parseFloat(inputPeso.value);
@@ -362,23 +552,25 @@ export function vistaOggi(stato, radice) {
     inputPeso.value = '';
     vistaOggi(stato, radice);
   });
-  rowPeso.appendChild(inputPeso);
-  rowPeso.appendChild(btnSalvaPeso);
-  metricaPeso.appendChild(rowPeso);
+  metricaPeso.appendChild(btnSalvaPeso);
 
-  // Prossima fase
+  // Metrica prossima fase
   const metricaFase = document.createElement('div');
   metricaFase.className = 'metrica';
+
   const prossimaFase = calcolaProssimaFase(oggi);
-  const faseEtichetta = document.createElement('span');
+
+  const faseEtichetta = document.createElement('div');
   faseEtichetta.className = 'etichetta';
   faseEtichetta.textContent = 'Prossima fase';
   metricaFase.appendChild(faseEtichetta);
-  const faseValore = document.createElement('span');
+
+  const faseValore = document.createElement('div');
   faseValore.className = 'valore';
   faseValore.textContent = prossimaFase.nome;
   metricaFase.appendChild(faseValore);
-  const faseSecondario = document.createElement('span');
+
+  const faseSecondario = document.createElement('div');
   faseSecondario.className = 'secondario';
   faseSecondario.textContent = prossimaFase.fra;
   metricaFase.appendChild(faseSecondario);
@@ -387,8 +579,7 @@ export function vistaOggi(stato, radice) {
   griglia.appendChild(metricaFase);
   radice.appendChild(griglia);
 
-  // ── Sync Whoop non-bloccante (Task 17) ────────────────────────────────────
-  // Guard anti-loop: al massimo 1 tentativo ogni 5 minuti
+  // ── Sync Whoop non-bloccante ──────────────────────────────────────────────
   const ORA = Date.now();
   const CINQUE_MIN = 5 * 60 * 1000;
   if (ORA - _ultimoTentativoSync >= CINQUE_MIN) {
@@ -400,55 +591,51 @@ export function vistaOggi(stato, radice) {
         vistaOggi(stato, radice);
       } else if (esito === 'errore') {
         if (wrapper) {
-          const b = document.createElement('div');
-          b.className = 'banner avviso';
-          b.textContent = 'Sincronizzazione Whoop non riuscita: inserisci a mano o riprova.';
-          wrapper.appendChild(b);
+          wrapper.appendChild(chip('Sincronizzazione Whoop non riuscita: inserisci a mano o riprova.', 'ambra'));
         }
       } else if (esito === 'non-collegato') {
         if (wrapper) {
-          const b = document.createElement('div');
-          b.className = 'banner avviso';
           const p = stato.store.leggi('whoopPonte', {});
           if (p.urlWorker) {
-            b.textContent = 'Whoop non collegato: ';
+            // Costruisci il chip con link manualmente (non usiamo il helper chip())
+            const c2 = document.createElement('div');
+            c2.className = 'chip chip-ambra';
+            const span = document.createElement('span');
+            span.textContent = 'Whoop non collegato: ';
+            c2.appendChild(span);
             const link = document.createElement('a');
             link.href = p.urlWorker.replace(/\/$/, '') + '/auth';
             link.target = '_blank';
             link.rel = 'noopener';
-            link.style.color = 'inherit';
-            link.style.textDecoration = 'underline';
             link.textContent = 'collega ora';
-            b.appendChild(link);
-            b.appendChild(document.createTextNode(' oppure vai nelle Impostazioni ⚙.'));
+            link.style.cssText = 'color: inherit; text-decoration: underline;';
+            c2.appendChild(link);
+            const span2 = document.createElement('span');
+            span2.textContent = ' oppure vai nelle Impostazioni.';
+            c2.appendChild(span2);
+            wrapper.appendChild(c2);
           } else {
-            b.textContent = 'Whoop non collegato: apri il collegamento dalle Impostazioni ⚙.';
+            wrapper.appendChild(chip('Whoop non collegato: apri il collegamento dalle Impostazioni.', 'ambra'));
           }
-          wrapper.appendChild(b);
         }
       }
-      // 'non-configurato' → nessun banner
+      // 'non-configurato' → nessun chip
     });
   }
 };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
-// Colori per fascia recupero
-const FASCIA_STILI = {
-  verde:  { bg: '#1d2b12', testo: '#97C459' },
-  giallo: { bg: '#3a2f12', testo: '#FAC775' },
-  rosso:  { bg: '#3a1212', testo: '#F09595' },
-};
-
-function renderConsiglioGiorno(container, recupero) {
-  container.textContent = '';
-  const recuperoNum = typeof recupero === 'number' ? recupero : parseFloat(recupero);
-  const consiglio = consiglioGiorno(Number.isNaN(recuperoNum) ? null : recuperoNum);
-  if (!consiglio) return;
-  const stile = FASCIA_STILI[consiglio.colore];
-  container.style.cssText = `background:${stile.bg};color:${stile.testo};border-radius:10px;padding:10px 12px;margin-top:10px;font-size:0.9rem;`;
-  container.textContent = consiglio.testo;
+/**
+ * Migliore serie: max kg, poi max reps (small local helper).
+ */
+function migliorSerie(serie) {
+  if (!serie || serie.length === 0) return null;
+  return serie.reduce((best, cur) => {
+    if (cur.kg > best.kg) return cur;
+    if (cur.kg === best.kg && cur.reps > best.reps) return cur;
+    return best;
+  });
 }
 
 function creaCard(titolo) {
@@ -463,46 +650,16 @@ function creaCard(titolo) {
   return card;
 }
 
-/**
- * Come creaCard, ma mostra opzionalmente un badge verde "sync" accanto al titolo.
- * @param {string} titolo
- * @param {boolean} mostraBadgeSync
- */
-function creaCardWhoop(titolo, mostraBadgeSync) {
-  const card = document.createElement('div');
-  card.className = 'card';
-  if (titolo) {
-    const header = document.createElement('div');
-    header.style.display = 'flex';
-    header.style.alignItems = 'center';
-    header.style.gap = '8px';
-    const h = document.createElement('h2');
-    h.className = 'eyebrow';
-    h.textContent = titolo;
-    header.appendChild(h);
-    if (mostraBadgeSync) {
-      const badge = document.createElement('span');
-      badge.textContent = 'sync';
-      badge.style.cssText = 'background:#1d2b12;color:#97C459;border-radius:4px;padding:1px 6px;font-size:0.75rem;font-weight:600;';
-      header.appendChild(badge);
-    }
-    card.appendChild(header);
-  }
-  return card;
-}
-
 function capitalizza(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function calcolaProssimaFase(oggi) {
-  // Build a consolidated phase list from the imported FASI (merging by name) plus the
-  // fixed Stagione boundary at 2026-08-23. Each entry is [da, a, nome].
   const FASI_CONS = [];
   for (const [da, a, nome] of FASI) {
     const last = FASI_CONS[FASI_CONS.length - 1];
     if (last && last[2] === nome) {
-      last[1] = a; // extend end date for same-name phases (Blocco 1, Blocco 2)
+      last[1] = a;
     } else {
       FASI_CONS.push([da, a, nome]);
     }
@@ -512,7 +669,6 @@ function calcolaProssimaFase(oggi) {
   for (let i = 0; i < FASI_CONS.length; i++) {
     const [da, a] = FASI_CONS[i];
     if (oggi >= da && oggi <= a) {
-      // Dentro questa fase, la prossima è la successiva
       if (i + 1 < FASI_CONS.length) {
         const [pDa, , pNome] = FASI_CONS[i + 1];
         const giorni = Math.round((new Date(pDa + 'T12:00:00') - new Date(oggi + 'T12:00:00')) / 864e5);

@@ -60,7 +60,7 @@ export const SEDUTE = {
     'R + skip A/B 5\'',
     'Salita: scatti di 20 m × 6-8 (risali camminando = il tuo recupero). Massima qualità, fresco.',
     'Accelerazioni in piano 10-20 m × 4',
-    '⚠️ Mai scendere la salita di corsa (fa male alle ginocchia).',
+    'Attenzione: mai scendere la salita di corsa (fa male alle ginocchia).',
   ]},
 
   AG: { codice: 'AG', titolo: 'AGILITÀ e CAMBI DI DIREZIONE', colore: 'giallo', voci: [

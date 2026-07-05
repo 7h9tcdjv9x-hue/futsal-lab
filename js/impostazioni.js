@@ -1,5 +1,7 @@
 import { esportaBackup, importaBackup, CHIAVI_BACKUP } from './storage.js';
 import { giorniTra } from './util.js';
+import { icona } from './icone.js';
+import { intestazione, chip } from './ui.js';
 
 // ─── backupInRitardo ──────────────────────────────────────────────────────────
 // Pure helper: true se il backup è in ritardo.
@@ -30,25 +32,33 @@ export function vistaImpostazioni(stato, radice) {
   const { store, oggi } = stato;
   radice.innerHTML = '';
 
-  // ── Titolo + back link ────────────────────────────────────────────────────
+  // ── Header iOS: frecciaSinistra + "Oggi" + titolo-vista ──────────────────
   const header = document.createElement('div');
-  header.className = 'eyebrow';
-  const back = document.createElement('button');
-  back.className = 'secondario';
-  back.textContent = '← Oggi';
-  back.addEventListener('click', () => {
-    // Import naviga lazily to avoid circular at module parse time
+  header.style.cssText = 'margin-bottom:16px;';
+
+  const backBtn = document.createElement('button');
+  backBtn.className = 'secondario';
+  backBtn.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:6px 10px;font-size:15px;margin-bottom:8px;background:none;color:var(--accento);';
+  backBtn.appendChild(icona('frecciaSinistra', 17));
+  const backTesto = document.createElement('span');
+  backTesto.textContent = 'Oggi';
+  backBtn.appendChild(backTesto);
+  backBtn.addEventListener('click', () => {
     import('./app.js').then(({ naviga }) => naviga('oggi'));
   });
-  header.appendChild(back);
-  const titolo = document.createElement('h1');
-  titolo.className = 'primario';
-  titolo.textContent = 'Impostazioni';
-  header.appendChild(titolo);
+  header.appendChild(backBtn);
+
+  const titoloEl = document.createElement('div');
+  titoloEl.className = 'titolo-vista';
+  titoloEl.textContent = 'Impostazioni';
+  header.appendChild(titoloEl);
+
   radice.appendChild(header);
 
   // ── Sezione Profilo ───────────────────────────────────────────────────────
-  const cardProfilo = creaCard('Profilo');
+  radice.appendChild(intestazione('PROFILO'));
+  const cardProfilo = document.createElement('div');
+  cardProfilo.className = 'card';
 
   const profilo = store.leggi('profilo', {});
 
@@ -93,30 +103,22 @@ export function vistaImpostazioni(stato, radice) {
   radice.appendChild(cardProfilo);
 
   // ── Sezione Backup ────────────────────────────────────────────────────────
-  const cardBackup = creaCard('Backup');
+  radice.appendChild(intestazione('BACKUP'));
+  const cardBackup = document.createElement('div');
+  cardBackup.className = 'card';
 
-  // Banner messaggi (errore / successo)
-  const bannerBackup = document.createElement('div');
-  bannerBackup.style.display = 'none';
-  cardBackup.appendChild(bannerBackup);
+  // Placeholder per chip esito (errore / successo)
+  let chipBackupEl = null;
 
-  function mostraBannerRosso(msg) {
-    bannerBackup.style.display = '';
-    bannerBackup.style.background = '#3a1212';
-    bannerBackup.style.color = '#F09595';
-    bannerBackup.style.borderRadius = '10px';
-    bannerBackup.style.padding = '10px 12px';
-    bannerBackup.style.marginBottom = '10px';
-    bannerBackup.textContent = msg;
+  function mostraChipRosso(msg) {
+    if (chipBackupEl) chipBackupEl.remove();
+    chipBackupEl = chip(msg, 'rosso');
+    cardBackup.insertBefore(chipBackupEl, cardBackup.firstChild);
   }
-  function mostraBannerVerde(msg) {
-    bannerBackup.style.display = '';
-    bannerBackup.style.background = '#1d2b12';
-    bannerBackup.style.color = '#97C459';
-    bannerBackup.style.borderRadius = '10px';
-    bannerBackup.style.padding = '10px 12px';
-    bannerBackup.style.marginBottom = '10px';
-    bannerBackup.textContent = msg;
+  function mostraChipVerde(msg) {
+    if (chipBackupEl) chipBackupEl.remove();
+    chipBackupEl = chip(msg, 'verde');
+    cardBackup.insertBefore(chipBackupEl, cardBackup.firstChild);
   }
 
   // Meta per "ultimo backup"
@@ -175,12 +177,12 @@ export function vistaImpostazioni(stato, radice) {
       try {
         const obj = JSON.parse(e.target.result);
         importaBackup(store, obj);
-        mostraBannerVerde('Backup ripristinato.');
+        mostraChipVerde('Backup ripristinato.');
         setTimeout(() => {
           import('./app.js').then(({ naviga }) => naviga('oggi'));
         }, 1000);
       } catch (err) {
-        mostraBannerRosso('Backup non valido: ' + err.message);
+        mostraChipRosso('Backup non valido: ' + err.message);
       }
       inputFile.value = '';
     };
@@ -193,7 +195,9 @@ export function vistaImpostazioni(stato, radice) {
   radice.appendChild(cardBackup);
 
   // ── Sezione Ponte Whoop ───────────────────────────────────────────────────
-  const cardWhoop = creaCard('Ponte Whoop');
+  radice.appendChild(intestazione('PONTE WHOOP'));
+  const cardWhoop = document.createElement('div');
+  cardWhoop.className = 'card';
 
   const ponte = store.leggi('whoopPonte', {});
 
@@ -232,7 +236,11 @@ export function vistaImpostazioni(stato, radice) {
 
   const btnCollega = document.createElement('button');
   btnCollega.className = 'secondario';
-  btnCollega.textContent = 'Collega Whoop';
+  btnCollega.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
+  btnCollega.appendChild(icona('esporta', 16));
+  const collegaTesto = document.createElement('span');
+  collegaTesto.textContent = 'Collega Whoop';
+  btnCollega.appendChild(collegaTesto);
   btnCollega.disabled = !(ponte.urlWorker ?? '').trim();
   btnCollega.addEventListener('click', () => {
     const p = store.leggi('whoopPonte', {});
@@ -249,17 +257,13 @@ export function vistaImpostazioni(stato, radice) {
   radice.appendChild(cardWhoop);
 
   // ── Sezione Dati ──────────────────────────────────────────────────────────
-  const cardDati = creaCard('Dati');
+  radice.appendChild(intestazione('DATI'));
+  const cardDati = document.createElement('div');
+  cardDati.className = 'card';
 
   const btnAzzera = document.createElement('button');
+  btnAzzera.className = 'distruttivo';
   btnAzzera.textContent = 'Azzera tutti i dati';
-  btnAzzera.style.background = '#3a1212';
-  btnAzzera.style.color = '#F09595';
-  btnAzzera.style.border = 'none';
-  btnAzzera.style.borderRadius = '8px';
-  btnAzzera.style.padding = '10px 16px';
-  btnAzzera.style.cursor = 'pointer';
-  btnAzzera.style.fontWeight = '600';
   btnAzzera.addEventListener('click', () => {
     if (!confirm('Sicuro di voler cancellare TUTTI i dati?')) return;
     if (!confirm('Ultima conferma: questa azione non si può annullare.')) return;
@@ -274,18 +278,6 @@ export function vistaImpostazioni(stato, radice) {
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-
-function creaCard(titolo) {
-  const card = document.createElement('div');
-  card.className = 'card';
-  if (titolo) {
-    const h = document.createElement('h2');
-    h.className = 'eyebrow';
-    h.textContent = titolo;
-    card.appendChild(h);
-  }
-  return card;
-}
 
 function creaRiga() {
   const r = document.createElement('div');

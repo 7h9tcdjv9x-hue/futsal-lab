@@ -4,6 +4,8 @@ import { SEDUTE } from './programma.js';
 import { giorniTra } from './util.js';
 import { fasciaRecupero } from './whoop.js';
 import { salvaFoto, elencoFoto, urlFoto, eliminaFoto } from './foto.js';
+import { segmented, chip, statoVuoto } from './ui.js';
+import { icona } from './icone.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -46,25 +48,6 @@ function slugDaNome(nome) {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-// ─── Pillole (tab switcher) ───────────────────────────────────────────────────
-
-function creaPillole(voci, attiva, onCambia) {
-  const div = document.createElement('div');
-  div.className = 'pillole';
-  for (const [chiave, etichetta] of voci) {
-    const btn = document.createElement('button');
-    btn.textContent = etichetta;
-    btn.className = chiave === attiva ? 'attivo' : '';
-    btn.addEventListener('click', () => {
-      div.querySelectorAll('button').forEach(b => b.classList.remove('attivo'));
-      btn.classList.add('attivo');
-      onCambia(chiave);
-    });
-    div.appendChild(btn);
-  }
-  return div;
-}
-
 // ─── Sezione Peso ─────────────────────────────────────────────────────────────
 
 function renderPeso(store, container) {
@@ -74,10 +57,7 @@ function renderPeso(store, container) {
 
   if (pesi.length === 0) {
     const card = creaCard('Peso');
-    const p = document.createElement('p');
-    p.className = 'secondario';
-    p.textContent = 'Registra il primo peso dalla tab Oggi.';
-    card.appendChild(p);
+    card.appendChild(statoVuoto('grafico', 'Nessun dato ancora', 'Registra il primo peso dalla tab Oggi.'));
     container.appendChild(card);
     return;
   }
@@ -89,9 +69,8 @@ function renderPeso(store, container) {
   const punti = pesi.map(p => ({ x: p.data, y: p.kg }));
   let bandaSVG = null;
   if (banda && punti.length >= 1) {
-    const ancoraIdx = pesi.findIndex(p => p.data === banda.ancora.data);
-    const ancoraX = new Date(banda.ancora.data + 'T12:00:00').getTime();
     const ultimaX = new Date(pesi[pesi.length - 1].data + 'T12:00:00').getTime();
+    const ancoraX = new Date(banda.ancora.data + 'T12:00:00').getTime();
     const giorni = (ultimaX - ancoraX) / 864e5;
     bandaSVG = {
       daY: banda.ancora.kg,
@@ -118,12 +97,12 @@ function renderPeso(store, container) {
   trendValore.className = 'valore';
   if (trend === null) {
     trendValore.textContent = '—';
-    trendValore.style.color = 'var(--testo3, #888780)';
+    trendValore.style.color = 'var(--testo3)';
   } else {
     const segno = trend >= 0 ? '+' : '';
     trendValore.textContent = segno + trend.toFixed(2).replace('.', ',') + ' kg/sett';
     const inBanda = trend >= 0.25 && trend <= 0.5;
-    trendValore.style.color = inBanda ? '#97C459' : '#EF9F27';
+    trendValore.style.color = inBanda ? 'var(--accento)' : 'var(--ambra)';
   }
   metricaTrend.appendChild(trendValore);
 
@@ -161,10 +140,7 @@ function renderForza(store, container) {
 
   if (slugs.length === 0) {
     const card = creaCard('Forza');
-    const p = document.createElement('p');
-    p.className = 'secondario';
-    p.textContent = 'Nessun esercizio registrato. Completa una seduta per vedere i progressi.';
-    card.appendChild(p);
+    card.appendChild(statoVuoto('grafico', 'Nessun dato ancora', 'Nessun esercizio registrato. Completa una seduta per vedere i progressi.'));
     container.appendChild(card);
     return;
   }
@@ -244,9 +220,10 @@ function renderForza(store, container) {
       dxDiv.style.alignItems = 'flex-end';
 
       if (isRecord) {
+        // Badge PR: pill lime, footnote 600, bg accento, color on-accento, raggio 999
         const badge = document.createElement('span');
         badge.textContent = 'PR';
-        badge.style.cssText = 'font-size:0.7rem;font-weight:700;color:#97C459;border:1px solid #97C459;border-radius:4px;padding:1px 5px;';
+        badge.style.cssText = 'font-size:13px;font-weight:600;background:var(--accento);color:var(--on-accento);border-radius:999px;padding:2px 8px;line-height:1.4;';
         dxDiv.appendChild(badge);
       }
 
@@ -350,21 +327,19 @@ function renderTest(store, oggi, container) {
       }
 
       if (!validazioneOk) {
-        // Show error banner
-        let errorBanner = formDiv.querySelector('.validazione-errore');
-        if (!errorBanner) {
-          errorBanner = document.createElement('div');
-          errorBanner.className = 'validazione-errore';
-          formDiv.insertBefore(errorBanner, formDiv.firstChild);
-        }
-        errorBanner.style.cssText = 'background:#3a1212;color:#F09595;border-radius:10px;padding:10px;margin-bottom:10px;';
-        errorBanner.textContent = 'Compila tutti i campi con valori validi prima di salvare.';
+        // Rimuovi errore precedente
+        const vecchio = formDiv.querySelector('.validazione-errore');
+        if (vecchio) vecchio.remove();
+        // Mostra chip errore
+        const erroreChip = chip('Compila tutti i campi con valori validi prima di salvare.', 'rosso');
+        erroreChip.className = erroreChip.className + ' validazione-errore';
+        formDiv.insertBefore(erroreChip, formDiv.firstChild);
         return;
       }
 
-      // Remove error banner if validation passed
-      const errorBanner = formDiv.querySelector('.validazione-errore');
-      if (errorBanner) errorBanner.remove();
+      // Remove error if validation passed
+      const vecchioErrore = formDiv.querySelector('.validazione-errore');
+      if (vecchioErrore) vecchioErrore.remove();
 
       const entry = { data: oggi, ...valori };
       const tests = store.leggi('test', []);
@@ -435,7 +410,7 @@ function renderTestMetrics(store, container) {
   for (const col of ['Data', 'Sprint', 'Salto', 'Traz.', 'Pieg.', 'Peso']) {
     const th = document.createElement('th');
     th.textContent = col;
-    th.style.cssText = 'text-align:left;padding:4px 6px;color:#888780;font-weight:500;';
+    th.style.cssText = 'text-align:left;padding:4px 6px;color:var(--testo3);font-weight:500;';
     trHead.appendChild(th);
   }
   thead.appendChild(trHead);
@@ -470,9 +445,9 @@ function renderTestMetrics(store, container) {
 // ─── Sezione Recupero ─────────────────────────────────────────────────────────
 
 const FASCIA_COLORI = {
-  verde:  '#97C459',
-  giallo: '#EF9F27',
-  rosso:  '#E24B4A',
+  verde:  '#63CE7A',
+  giallo: '#F5B23F',
+  rosso:  '#F06A5D',
 };
 
 function renderRecupero(store, container) {
@@ -483,10 +458,7 @@ function renderRecupero(store, container) {
 
   if (isoKeys.length === 0) {
     const card = creaCard('Recupero Whoop');
-    const p = document.createElement('p');
-    p.className = 'secondario';
-    p.textContent = 'Inserisci i dati Whoop dalla tab Oggi (o collega il ponte nelle Impostazioni).';
-    card.appendChild(p);
+    card.appendChild(statoVuoto('grafico', 'Nessun dato ancora', 'Inserisci i dati Whoop dalla tab Oggi (o collega il ponte nelle Impostazioni).'));
     container.appendChild(card);
     return;
   }
@@ -495,7 +467,8 @@ function renderRecupero(store, container) {
   const cardStriscia = creaCard('Ultimi 28 giorni');
 
   const strisciaDiv = document.createElement('div');
-  strisciaDiv.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;';
+  // Quadratini 10px raggio 4 gap 3
+  strisciaDiv.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;margin-top:8px;';
 
   const oggi = new Date();
   for (let i = 27; i >= 0; i--) {
@@ -504,10 +477,10 @@ function renderRecupero(store, container) {
     const iso = d.toISOString().slice(0, 10);
     const dati = whoopDati[iso];
     const fascia = dati ? fasciaRecupero(dati.recupero) : null;
-    const colore = fascia ? FASCIA_COLORI[fascia] : '#33362F';
+    const colore = fascia ? FASCIA_COLORI[fascia] : 'var(--sup2)';
 
     const sq = document.createElement('div');
-    sq.style.cssText = `width:12px;height:12px;border-radius:3px;background:${colore};flex-shrink:0;`;
+    sq.style.cssText = `width:10px;height:10px;border-radius:4px;background:${colore};flex-shrink:0;`;
     sq.title = iso;
     strisciaDiv.appendChild(sq);
   }
@@ -618,10 +591,7 @@ async function renderFoto(store, oggi, container) {
   }
 
   if (foto.length === 0) {
-    const p = document.createElement('p');
-    p.className = 'secondario';
-    p.textContent = 'Nessuna foto salvata. Aggiungi la prima foto con il pulsante sopra.';
-    cardUpload.appendChild(p);
+    cardUpload.appendChild(statoVuoto('fotocamera', 'Nessuna foto salvata', 'Aggiungi la prima foto con il pulsante sopra.'));
   } else {
     const cardGriglia = creaCard('');
     cardGriglia.className = 'card';
@@ -691,7 +661,7 @@ async function renderFoto(store, oggi, container) {
       // Bordi
       for (const { wrap, img, f: fi } of miniatureElem) {
         const sel = selezionate.find(s => s.id === fi.id);
-        img.style.borderColor = sel ? '#97C459' : 'transparent';
+        img.style.borderColor = sel ? 'var(--accento)' : 'transparent';
       }
 
       if (selezionate.length === 2) {
@@ -777,26 +747,22 @@ export function vistaProgressi(stato, radice) {
   radice.innerHTML = '';
 
   const header = document.createElement('h1');
-  header.className = 'eyebrow';
+  header.className = 'titolo-vista';
   header.textContent = 'Progressi';
   radice.appendChild(header);
 
-  const TABS = [
-    ['peso', 'Peso'],
-    ['forza', 'Forza'],
-    ['test', 'Test'],
-    ['recupero', 'Recupero'],
-    ['foto', 'Foto'],
-  ];
+  const VOCI = ['Peso', 'Forza', 'Test', 'Recupero', 'Foto'];
+  const CHIAVI = ['peso', 'forza', 'test', 'recupero', 'foto'];
 
-  let tabAttiva = 'peso';
+  let tabAttiva = 0;
   const contenuto = document.createElement('div');
   contenuto.style.marginTop = '12px';
 
-  function caricaTab(tab) {
-    tabAttiva = tab;
+  function caricaTab(idx) {
+    tabAttiva = idx;
     revocaURLCreati();
     contenuto.innerHTML = '';
+    const tab = CHIAVI[idx];
     if (tab === 'peso') {
       renderPeso(store, contenuto);
     } else if (tab === 'forza') {
@@ -808,7 +774,7 @@ export function vistaProgressi(stato, radice) {
     } else if (tab === 'foto') {
       renderFoto(store, oggi, contenuto);
     } else {
-      const card = creaCard(TABS.find(([k]) => k === tab)?.[1] ?? tab);
+      const card = creaCard(VOCI[idx]);
       const p = document.createElement('p');
       p.className = 'secondario';
       p.textContent = 'In arrivo.';
@@ -817,8 +783,8 @@ export function vistaProgressi(stato, radice) {
     }
   }
 
-  const pillole = creaPillole(TABS, tabAttiva, caricaTab);
-  radice.appendChild(pillole);
+  const seg = segmented(VOCI, tabAttiva, caricaTab);
+  radice.appendChild(seg);
   radice.appendChild(contenuto);
 
   caricaTab(tabAttiva);
