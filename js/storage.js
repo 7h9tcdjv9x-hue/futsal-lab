@@ -5,7 +5,7 @@ export function creaStore(backend = globalThis.localStorage) {
     scrivi(chiave, val) { backend.setItem(PREFISSO + chiave, JSON.stringify(val)); },
   };
 }
-export const CHIAVI_BACKUP = ['profilo', 'piani', 'sedute', 'registro', 'abitudini', 'peso', 'whoop', 'whoopPonte', 'test', 'stagione', 'meta'];
+export const CHIAVI_BACKUP = ['profilo', 'piani', 'sedute', 'registro', 'abitudini', 'peso', 'whoop', 'whoopPonte', 'test', 'stagione', 'meta', 'allenamenti'];
 export function esportaBackup(store) {
   const dati = {};
   for (const k of CHIAVI_BACKUP) dati[k] = store.leggi(k, null);
@@ -13,7 +13,7 @@ export function esportaBackup(store) {
 }
 export function importaBackup(store, obj) {
   if (obj?.formato !== 'futsal-lab-backup@1') throw new Error('Formato backup non riconosciuto');
-  const ARRAY_KEYS = ['piani', 'peso', 'test'];
+  const ARRAY_KEYS = ['piani', 'peso', 'test', 'allenamenti'];
   const OBJECT_KEYS = ['sedute', 'registro', 'abitudini', 'whoop', 'whoopPonte', 'stagione', 'meta', 'profilo'];
   // Validate all keys before writing anything
   for (const k of CHIAVI_BACKUP) {

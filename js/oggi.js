@@ -11,6 +11,7 @@ import {
   intestazione,
 } from './ui.js';
 import { icona } from './icone.js';
+import { apriAllenamentoLibero, allenamentiDelGiorno } from './allenamentoLibero.js';
 
 // Timestamp modulo-level per il guard anti-loop (al massimo 1 sync ogni 5 minuti)
 let _ultimoTentativoSync = 0;
@@ -448,6 +449,70 @@ export function vistaOggi(stato, radice) {
     }
 
     radice.appendChild(cardSedute);
+  }
+
+  // ── 5b. Allenamenti liberi di oggi ───────────────────────────────────────
+  {
+    const allenamenti = allenamentiDelGiorno(store, oggi);
+
+    if (allenamenti.length > 0) {
+      radice.appendChild(intestazione('ALLENAMENTI LIBERI'));
+      const cardAl = document.createElement('div');
+      cardAl.className = 'card';
+
+      for (const al of allenamenti) {
+        const riga = document.createElement('div');
+        riga.className = 'riga';
+        riga.style.cursor = 'pointer';
+
+        const left = document.createElement('div');
+        left.style.flex = '1';
+
+        const titoloSpan = document.createElement('div');
+        titoloSpan.style.cssText = 'font-size:15px;font-weight:500;color:var(--testo);';
+        titoloSpan.textContent = al.titolo && al.titolo.trim()
+          ? al.titolo
+          : new Date(al.data + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+        left.appendChild(titoloSpan);
+
+        const nEsercizi = (al.righe ?? []).filter(r => r.tipo === 'esercizio').length;
+        const nNote = (al.righe ?? []).filter(r => r.tipo === 'nota').length;
+        const parti = [];
+        if (nEsercizi > 0) parti.push(nEsercizi + (nEsercizi === 1 ? ' esercizio' : ' esercizi'));
+        if (nNote > 0) parti.push(nNote + (nNote === 1 ? ' nota' : ' note'));
+        if (parti.length > 0) {
+          const sottoEl = document.createElement('div');
+          sottoEl.className = 'footnote';
+          sottoEl.style.marginTop = '2px';
+          sottoEl.textContent = parti.join(' · ');
+          left.appendChild(sottoEl);
+        }
+
+        const chevron = document.createElement('span');
+        chevron.style.color = 'var(--testo3)';
+        chevron.appendChild(icona('chevronDestra', 16));
+
+        riga.appendChild(left);
+        riga.appendChild(chevron);
+
+        const alCapt = al;
+        riga.addEventListener('click', () => apriAllenamentoLibero(stato, alCapt));
+        cardAl.appendChild(riga);
+      }
+
+      radice.appendChild(cardAl);
+    }
+
+    // Bottone ＋ Allenamento libero
+    const btnAlLibero = document.createElement('button');
+    btnAlLibero.className = 'secondario';
+    btnAlLibero.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-bottom:12px;';
+    btnAlLibero.appendChild(icona('piu', 16));
+    const spnAl = document.createElement('span');
+    spnAl.textContent = 'Allenamento libero';
+    btnAlLibero.appendChild(spnAl);
+    btnAlLibero.addEventListener('click', () => apriAllenamentoLibero(stato));
+    radice.appendChild(btnAlLibero);
   }
 
   // ── 6. Check-in Whoop ─────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { fasciaRecupero } from './whoop.js';
 import { salvaFoto, elencoFoto, urlFoto, eliminaFoto } from './foto.js';
 import { segmented, chip, statoVuoto } from './ui.js';
 import { icona } from './icone.js';
+import { apriAllenamentoLibero } from './allenamentoLibero.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ function creaCard(titolo) {
   return card;
 }
 
-function nomeDaSlug(slug, piani) {
+function nomeDaSlug(slug, piani, allenamenti) {
   // Search in plans' exercises
   for (const piano of (piani || [])) {
     for (const seduta of (piano.sedute || [])) {
@@ -36,6 +37,14 @@ function nomeDaSlug(slug, piani) {
   for (const sed of Object.values(SEDUTE)) {
     for (const es of (sed.esercizi || [])) {
       if (slugDaNome(es.nome) === slug) return es.nome;
+    }
+  }
+  // Search in fl:allenamenti exercise names
+  for (const al of (allenamenti || [])) {
+    for (const riga of (al.righe || [])) {
+      if (riga.tipo === 'esercizio' && riga.nome && slugDaNome(riga.nome) === slug) {
+        return riga.nome;
+      }
     }
   }
   // Fallback: humanize slug
@@ -137,6 +146,7 @@ function renderForza(store, container) {
   const registro = store.leggi('registro', {});
   const slugs = Object.keys(registro).filter(s => registro[s].length > 0);
   const piani = store.leggi('piani', []);
+  const allenamenti = store.leggi('allenamenti', []);
 
   if (slugs.length === 0) {
     const card = creaCard('Forza');
@@ -157,7 +167,7 @@ function renderForza(store, container) {
   for (const slug of slugs) {
     const opt = document.createElement('option');
     opt.value = slug;
-    opt.textContent = nomeDaSlug(slug, piani);
+    opt.textContent = nomeDaSlug(slug, piani, allenamenti);
     sel.appendChild(opt);
   }
   selectLabel.appendChild(labelSpan);
@@ -186,7 +196,7 @@ function renderForza(store, container) {
       chartCard.className = 'card';
       const nomeEl = document.createElement('p');
       nomeEl.className = 'primario';
-      nomeEl.textContent = nomeDaSlug(slug, piani);
+      nomeEl.textContent = nomeDaSlug(slug, piani, allenamenti);
       chartCard.appendChild(nomeEl);
       const chartDiv = document.createElement('div');
       chartDiv.innerHTML = lineaSVG({ punti: puntiGrafico, unita: 'kg' });
@@ -740,6 +750,73 @@ async function renderFoto(store, oggi, container) {
   container.appendChild(notaCard);
 }
 
+// ─── Sezione Diario ───────────────────────────────────────────────────────────
+
+function renderDiario(stato, container) {
+  container.innerHTML = '';
+
+  const { store } = stato;
+  const allenamenti = [...store.leggi('allenamenti', [])].reverse(); // più recenti prima
+
+  if (allenamenti.length === 0) {
+    container.appendChild(statoVuoto('elenco', 'Nessun allenamento libero', 'Aggiungilo dalla scheda Oggi'));
+    return;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  for (const al of allenamenti) {
+    const riga = document.createElement('div');
+    riga.className = 'riga';
+    riga.style.cursor = 'pointer';
+
+    const left = document.createElement('div');
+    left.style.flex = '1';
+
+    const dataEl = document.createElement('div');
+    dataEl.className = 'footnote';
+    dataEl.style.cssText = 'color:var(--testo2);margin-bottom:2px;';
+    dataEl.textContent = new Date(al.data + 'T12:00:00').toLocaleDateString('it-IT', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
+    left.appendChild(dataEl);
+
+    if (al.titolo && al.titolo.trim()) {
+      const titoloEl = document.createElement('div');
+      titoloEl.style.cssText = 'font-size:15px;font-weight:500;color:var(--testo);';
+      titoloEl.textContent = al.titolo;
+      left.appendChild(titoloEl);
+    }
+
+    const nEsercizi = (al.righe ?? []).filter(r => r.tipo === 'esercizio').length;
+    const nNote = (al.righe ?? []).filter(r => r.tipo === 'nota').length;
+    const parti = [];
+    if (nEsercizi > 0) parti.push(nEsercizi + (nEsercizi === 1 ? ' esercizio' : ' esercizi'));
+    if (nNote > 0) parti.push(nNote + (nNote === 1 ? ' nota' : ' note'));
+    if (parti.length > 0) {
+      const sottoEl = document.createElement('div');
+      sottoEl.className = 'footnote';
+      sottoEl.style.marginTop = '2px';
+      sottoEl.textContent = parti.join(' · ');
+      left.appendChild(sottoEl);
+    }
+
+    const chevron = document.createElement('span');
+    chevron.style.color = 'var(--testo3)';
+    chevron.appendChild(icona('chevronDestra', 16));
+
+    riga.appendChild(left);
+    riga.appendChild(chevron);
+
+    const alCapt = al;
+    riga.addEventListener('click', () => apriAllenamentoLibero(stato, alCapt));
+    card.appendChild(riga);
+  }
+
+  container.appendChild(card);
+}
+
 // ─── Vista principale ─────────────────────────────────────────────────────────
 
 export function vistaProgressi(stato, radice) {
@@ -751,8 +828,8 @@ export function vistaProgressi(stato, radice) {
   header.textContent = 'Progressi';
   radice.appendChild(header);
 
-  const VOCI = ['Peso', 'Forza', 'Test', 'Recupero', 'Foto'];
-  const CHIAVI = ['peso', 'forza', 'test', 'recupero', 'foto'];
+  const VOCI = ['Peso', 'Forza', 'Test', 'Recupero', 'Foto', 'Diario'];
+  const CHIAVI = ['peso', 'forza', 'test', 'recupero', 'foto', 'diario'];
 
   let tabAttiva = 0;
   const contenuto = document.createElement('div');
@@ -773,6 +850,8 @@ export function vistaProgressi(stato, radice) {
       renderRecupero(store, contenuto);
     } else if (tab === 'foto') {
       renderFoto(store, oggi, contenuto);
+    } else if (tab === 'diario') {
+      renderDiario(stato, contenuto);
     } else {
       const card = creaCard(VOCI[idx]);
       const p = document.createElement('p');
