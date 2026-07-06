@@ -26,10 +26,10 @@ export function importaBackup(store, obj) {
   }
   for (const k of CHIAVI_BACKUP) if (obj.dati?.[k] != null) store.scrivi(k, obj.dati[k]);
 }
-export function registraSerie(store, { slug, data, pianoId, serie }) {
+export function registraSerie(store, { slug, data, pianoId, unita = 'reps', serie }) {
   const reg = store.leggi('registro', {});
   const voci = (reg[slug] ?? []).filter(v => !(v.data === data && v.pianoId === pianoId));
-  voci.push({ data, pianoId, serie });
+  voci.push({ data, pianoId, unita, serie });
   voci.sort((a, b) => a.data.localeCompare(b.data));
   reg[slug] = voci;
   store.scrivi('registro', reg);

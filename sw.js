@@ -1,4 +1,4 @@
-const CACHE = 'futsal-lab-v4';
+const CACHE = 'futsal-lab-v5';
 const ASSET = ['.', 'index.html', 'css/style.css', 'manifest.json',
   'js/app.js', 'js/util.js', 'js/storage.js', 'js/programma.js', 'js/piani.js',
   'js/oggi.js', 'js/seduta.js', 'js/pianiView.js', 'js/calcoli.js', 'js/grafici.js',

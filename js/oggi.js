@@ -1,4 +1,5 @@
 import { faseCorrente, FASI, TEMPLATE_STAGIONE, SEDUTE, CALENDARIO } from './programma.js';
+import { formattaSerie } from './util.js';
 import { sedutePerGiorno } from './piani.js';
 import { apriSeduta, ultimaVolta, slugEsercizio } from './seduta.js';
 import { testInRitardo } from './calcoli.js';
@@ -393,7 +394,7 @@ export function vistaOggi(stato, radice) {
         if (ultima && ultima.serie && ultima.serie.length > 0) {
           const best = migliorSerie(ultima.serie);
           if (best) {
-            sottoTesto.push('da battere: ' + best.kg + ' kg × ' + best.reps);
+            sottoTesto.push('da battere: ' + formattaSerie(best, ultima.unita));
           }
         }
       }

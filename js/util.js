@@ -13,3 +13,12 @@ export function giornoSettimana(iso) {
 export function giorniTra(a, b) {
   return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5);
 }
+export function formattaSerie({ kg, reps } = {}, unita = 'reps') {
+  if (!isFinite(reps) || reps == null) return '—';
+  const hasCaricoKg = Number(kg) > 0;
+  if (unita === 'sec') {
+    return hasCaricoKg ? `${kg} kg × ${reps} sec` : `${reps} sec`;
+  }
+  if (!isFinite(reps)) return '—';
+  return hasCaricoKg ? `${kg} kg × ${reps}` : `${reps} reps`;
+}

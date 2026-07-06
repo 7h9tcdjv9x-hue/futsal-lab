@@ -1,7 +1,7 @@
 import { registraSerie } from './storage.js';
 import { slugEsercizio } from './util.js';
 import { icona } from './icone.js';
-import { chip } from './ui.js';
+import { chip, segmented } from './ui.js';
 import { SEDUTE } from './programma.js';
 
 let _contatore = 0;
@@ -46,6 +46,7 @@ export function registraAllenamento(store, allenamento) {
       slug: slugEsercizio(riga.nome),
       data: allenamento.data,
       pianoId: 'libero',
+      unita: riga.unita ?? 'reps',
       serie: sv,
     });
   }
@@ -185,6 +186,7 @@ export function apriAllenamentoLibero(stato, esistente = null) {
           righe.push({
             tipo: 'esercizio',
             nome: r.nome ?? '',
+            unita: r.unita ?? 'reps',
             serie: (r.serie ?? []).map(s => ({ kg: s.kg, reps: s.reps })),
           });
         } else if (r.tipo === 'nota') {
@@ -234,12 +236,28 @@ export function apriAllenamentoLibero(stato, esistente = null) {
           headerRiga.appendChild(btnRimuovi);
           card.appendChild(headerRiga);
 
+          // ── Interruttore reps / sec ────────────────────────────────────
+          // Raccoglie i suffix span delle serie per aggiornamento in-place
+          const suffixSpansLibero = [];
+          const indiceUnitaIniziale = (r.unita ?? 'reps') === 'sec' ? 1 : 0;
+          const toggleWrapLibero = document.createElement('div');
+          toggleWrapLibero.style.cssText = 'margin-top:4px;margin-bottom:4px;';
+          const ctrlLibero = segmented(['reps', 'sec'], indiceUnitaIniziale, (i) => {
+            r.unita = i === 1 ? 'sec' : 'reps';
+            for (const sp of suffixSpansLibero) {
+              sp.textContent = r.unita;
+            }
+          });
+          toggleWrapLibero.appendChild(ctrlLibero);
+          card.appendChild(toggleWrapLibero);
+
           // Righe serie
           const serieContainer = document.createElement('div');
           card.appendChild(serieContainer);
 
           function renderSerie() {
             serieContainer.innerHTML = '';
+            suffixSpansLibero.length = 0;
             for (let si = 0; si < r.serie.length; si++) {
               const s = r.serie[si];
               const rigaSerie = document.createElement('div');
@@ -283,7 +301,8 @@ export function apriAllenamentoLibero(stato, esistente = null) {
               inputReps.value = (s.reps !== '' && s.reps !== undefined && s.reps !== null) ? s.reps : '';
               const repsSuffix = document.createElement('span');
               repsSuffix.className = 'footnote';
-              repsSuffix.textContent = 'reps';
+              repsSuffix.textContent = r.unita ?? 'reps';
+              suffixSpansLibero.push(repsSuffix);
               repsWrap.appendChild(inputReps);
               repsWrap.appendChild(repsSuffix);
 
@@ -398,7 +417,7 @@ export function apriAllenamentoLibero(stato, esistente = null) {
     spnEs.textContent = 'Esercizio';
     btnAddEsercizio.appendChild(spnEs);
     btnAddEsercizio.addEventListener('click', () => {
-      righe.push({ tipo: 'esercizio', nome: '', serie: [{ kg: '', reps: '' }] });
+      righe.push({ tipo: 'esercizio', nome: '', unita: 'reps', serie: [{ kg: '', reps: '' }] });
       renderRighe();
     });
 
@@ -455,7 +474,7 @@ export function apriAllenamentoLibero(stato, esistente = null) {
       // Costruisci oggetto
       const righeFinali = righe.map(r => {
         if (r.tipo === 'nota') return { tipo: 'nota', testo: r.testo };
-        return { tipo: 'esercizio', nome: r.nome, serie: r.serie };
+        return { tipo: 'esercizio', nome: r.nome, unita: r.unita ?? 'reps', serie: r.serie };
       });
 
       // Validazione: serve almeno un esercizio valido (nome + ≥1 serie valida) o una nota non vuota

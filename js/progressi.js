@@ -1,7 +1,7 @@
 import { trendPeso, bandaObiettivo, migliorSerie, mediaSettimanale } from './calcoli.js';
 import { lineaSVG } from './grafici.js';
 import { SEDUTE } from './programma.js';
-import { giorniTra } from './util.js';
+import { giorniTra, formattaSerie } from './util.js';
 import { fasciaRecupero } from './whoop.js';
 import { salvaFoto, elencoFoto, urlFoto, eliminaFoto } from './foto.js';
 import { segmented, chip, statoVuoto } from './ui.js';
@@ -183,12 +183,18 @@ function renderForza(store, container) {
     const slug = sel.value;
     const voci = registro[slug] || [];
 
-    // Chart: miglior serie per data
+    // Determina unita dall'ultima voce del registro per questo slug (default 'reps')
+    const ultimaVoce = voci.length > 0 ? voci[voci.length - 1] : null;
+    const unita = (ultimaVoce && ultimaVoce.unita) ? ultimaVoce.unita : 'reps';
+
+    // Chart: miglior serie per data. Per gli esercizi a tempo il grafico usa i
+    // secondi (il valore), per quelli a ripetizioni resta sul carico (kg).
+    const perTempo = unita === 'sec';
     const puntiGrafico = [];
     for (const voce of voci) {
       const flatSerie = voce.serie || [];
       const best = migliorSerie(flatSerie);
-      if (best) puntiGrafico.push({ x: voce.data, y: best.kg });
+      if (best) puntiGrafico.push({ x: voce.data, y: perTempo ? best.reps : best.kg });
     }
 
     if (puntiGrafico.length > 0) {
@@ -198,23 +204,44 @@ function renderForza(store, container) {
       nomeEl.className = 'primario';
       nomeEl.textContent = nomeDaSlug(slug, piani, allenamenti);
       chartCard.appendChild(nomeEl);
+      // Etichetta unità sotto il nome dell'esercizio
+      const unitaEl = document.createElement('p');
+      unitaEl.className = 'secondario';
+      unitaEl.style.fontSize = '0.8rem';
+      unitaEl.textContent = unita === 'sec' ? 'Progressi in secondi' : 'Progressi in ripetizioni';
+      chartCard.appendChild(unitaEl);
       const chartDiv = document.createElement('div');
-      chartDiv.innerHTML = lineaSVG({ punti: puntiGrafico, unita: 'kg' });
+      chartDiv.innerHTML = lineaSVG({ punti: puntiGrafico, unita: perTempo ? 'sec' : 'kg' });
       chartCard.appendChild(chartDiv);
       cardDettaglio.appendChild(chartCard);
     }
 
-    // Find PR kg
+    // Find PR (miglior serie su tutte le voci)
     const tutteSerie = voci.flatMap(v => v.serie || []);
     const prBest = migliorSerie(tutteSerie);
-    const prKg = prBest ? prBest.kg : null;
 
     // List of dates
     const listaCard = creaCard('Storico');
+
+    // Riga PR badge in cima allo storico
+    if (prBest) {
+      const rigaPR = document.createElement('div');
+      rigaPR.className = 'riga';
+      const prLabel = document.createElement('span');
+      prLabel.className = 'secondario';
+      prLabel.textContent = 'Record personale';
+      const prValore = document.createElement('span');
+      prValore.style.cssText = 'font-size:13px;font-weight:600;background:var(--accento);color:var(--on-accento);border-radius:999px;padding:2px 8px;line-height:1.4;';
+      prValore.textContent = formattaSerie(prBest, unita);
+      rigaPR.appendChild(prLabel);
+      rigaPR.appendChild(prValore);
+      listaCard.appendChild(rigaPR);
+    }
+
     for (const voce of [...voci].reverse()) {
       const flatSerie = voce.serie || [];
       const best = migliorSerie(flatSerie);
-      const isRecord = best && prKg !== null && best.kg === prKg;
+      const isRecord = prBest && best && best.kg === prBest.kg && best.reps === prBest.reps;
 
       const riga = document.createElement('div');
       riga.className = 'riga';
@@ -240,7 +267,7 @@ function renderForza(store, container) {
       for (const s of flatSerie) {
         const sSpan = document.createElement('span');
         sSpan.className = 'secondario';
-        sSpan.textContent = s.kg + ' kg × ' + s.reps;
+        sSpan.textContent = formattaSerie(s, unita);
         dxDiv.appendChild(sSpan);
       }
 

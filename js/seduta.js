@@ -1,8 +1,9 @@
 import { naviga } from './app.js';
 import { registraSerie, ultimaVolta as _ultimaVolta } from './storage.js';
-import { slugEsercizio as _slugEsercizio } from './util.js';
+import { slugEsercizio as _slugEsercizio, formattaSerie } from './util.js';
 import { chiaveSeduta } from './oggi.js';
 import { icona } from './icone.js';
+import { segmented } from './ui.js';
 
 // Re-export per uso in oggi.js (read-only, API invariate)
 export { _ultimaVolta as ultimaVolta, _slugEsercizio as slugEsercizio };
@@ -135,6 +136,17 @@ export function apriSeduta(stato, voce) {
         seriePrefill = ultima.serie;
       }
 
+      // Unità iniziale: dall'ultima volta, oppure derivata dal testo obiettivo, altrimenti 'reps'
+      const testoObiettivo = `${e.reps ?? ''} ${e.note ?? ''}`;
+      let unitaEsercizio;
+      if (ultima && ultima.unita) {
+        unitaEsercizio = ultima.unita;
+      } else if (/sec/i.test(testoObiettivo)) {
+        unitaEsercizio = 'sec';
+      } else {
+        unitaEsercizio = 'reps';
+      }
+
       const righeCorrente = [];
       for (let s = 0; s < nSerie; s++) {
         righeCorrente.push({
@@ -180,7 +192,7 @@ export function apriSeduta(stato, voce) {
       if (ultima && ultima.serie && ultima.serie.length > 0) {
         const best = migliorSerieDi(ultima.serie);
         if (best) {
-          ultimaEl.textContent = `Ultima volta: ${best.kg} kg × ${best.reps} (${formatDataBreve(ultima.data)})`;
+          ultimaEl.textContent = `Ultima volta: ${formattaSerie(best, ultima.unita)} (${formatDataBreve(ultima.data)})`;
         } else {
           ultimaEl.textContent = 'Prima volta!';
         }
@@ -189,6 +201,22 @@ export function apriSeduta(stato, voce) {
       }
       ultimaWrap.appendChild(ultimaEl);
       card.appendChild(ultimaWrap);
+
+      // ── Interruttore reps / sec ──────────────────────────────────────────
+      const indiceIniziale = unitaEsercizio === 'sec' ? 1 : 0;
+      // Array di span suffisso per questo esercizio (popolato mentre si rendono le righe)
+      const suffixSpans = [];
+
+      const toggleWrap = document.createElement('div');
+      toggleWrap.style.cssText = 'margin-top:10px;margin-bottom:4px;';
+      const ctrl = segmented(['reps', 'sec'], indiceIniziale, (i) => {
+        unitaEsercizio = i === 1 ? 'sec' : 'reps';
+        for (const sp of suffixSpans) {
+          sp.textContent = unitaEsercizio;
+        }
+      });
+      toggleWrap.appendChild(ctrl);
+      card.appendChild(toggleWrap);
 
       // Righe serie: etichetta + wrapper flex con input h48 + suffissi
       for (let s = 0; s < nSerie; s++) {
@@ -236,7 +264,8 @@ export function apriSeduta(stato, voce) {
         inputReps.value = valReps !== '' && valReps !== undefined && valReps !== null ? valReps : '';
         const repsSuffix = document.createElement('span');
         repsSuffix.className = 'footnote';
-        repsSuffix.textContent = 'reps';
+        repsSuffix.textContent = unitaEsercizio;
+        suffixSpans.push(repsSuffix);
         repsWrap.appendChild(inputReps);
         repsWrap.appendChild(repsSuffix);
 
@@ -272,7 +301,7 @@ export function apriSeduta(stato, voce) {
                 return { kg: isNaN(rKg) ? 0 : rKg, reps: rReps };
               });
 
-            registraSerie(store, { slug, data: oggi, pianoId, serie: serieValide });
+            registraSerie(store, { slug, data: oggi, pianoId, unita: unitaEsercizio, serie: serieValide });
           });
         };
 
