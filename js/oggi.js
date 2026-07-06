@@ -478,9 +478,11 @@ export function vistaOggi(stato, radice) {
 
         const nEsercizi = (al.righe ?? []).filter(r => r.tipo === 'esercizio').length;
         const nNote = (al.righe ?? []).filter(r => r.tipo === 'nota').length;
+        const nCorse = (al.righe ?? []).filter(r => r.tipo === 'corsa').length;
         const parti = [];
         if (nEsercizi > 0) parti.push(nEsercizi + (nEsercizi === 1 ? ' esercizio' : ' esercizi'));
         if (nNote > 0) parti.push(nNote + (nNote === 1 ? ' nota' : ' note'));
+        if (nCorse > 0) parti.push(nCorse + (nCorse === 1 ? ' corsa' : ' corse'));
         if (parti.length > 0) {
           const sottoEl = document.createElement('div');
           sottoEl.className = 'footnote';

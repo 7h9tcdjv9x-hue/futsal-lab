@@ -4,6 +4,7 @@ import { slugEsercizio as _slugEsercizio, formattaSerie } from './util.js';
 import { chiaveSeduta } from './oggi.js';
 import { icona } from './icone.js';
 import { segmented } from './ui.js';
+import { TIPI_CORSA, calcolaRitmo, sincronizzaCorse, corsaValida } from './corse.js';
 
 // Re-export per uso in oggi.js (read-only, API invariate)
 export { _ultimaVolta as ultimaVolta, _slugEsercizio as slugEsercizio };
@@ -75,6 +76,237 @@ export function apriSeduta(stato, voce) {
 
   radice.appendChild(header);
 
+  // ── Costruttore blocco corse (usato in entrambi i rami) ───────────────────
+
+  function montaCorse(contenitore) {
+    const origineCorsa = 'seduta:' + voce.pianoId + ':' + oggi;
+
+    // Pre-carica le corse già salvate per questa origine
+    const corseSeduta = store.leggi('corse', [])
+      .filter(c => c.origine === origineCorsa)
+      .map(c => ({
+        tipo: 'corsa',
+        tipoCorsa: c.tipo ?? '',
+        tempoMin: c.tempoMin ?? '',
+        distanzaKm: c.distanzaKm ?? '',
+        ritmo: c.ritmo ?? '',
+        note: c.note ?? '',
+      }));
+
+    // Funzione per sincronizzare le corse correnti
+    const sincronizzaCorseCorrente = () => {
+      const dati = corseSeduta.map(r => ({
+        data: oggi,
+        tipo: r.tipoCorsa ?? '',
+        tempoMin: r.tempoMin,
+        distanzaKm: r.distanzaKm,
+        ritmo: r.ritmo ?? '',
+        note: r.note ?? '',
+      }));
+      sincronizzaCorse(store, origineCorsa, dati);
+    };
+
+    // Contenitore righe corse
+    const corseContainer = document.createElement('div');
+    contenitore.appendChild(corseContainer);
+
+    function renderCorseSeduta() {
+      corseContainer.innerHTML = '';
+      for (let ci = 0; ci < corseSeduta.length; ci++) {
+        const r = corseSeduta[ci];
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginBottom = '12px';
+
+        // Intestazione
+        const headerC = document.createElement('div');
+        headerC.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;';
+        const labelC = document.createElement('span');
+        labelC.className = 'footnote';
+        labelC.textContent = 'Corsa';
+        const btnRimC = document.createElement('button');
+        btnRimC.className = 'secondario';
+        btnRimC.style.cssText = 'padding:4px 8px;color:var(--rosso);margin-left:auto;flex-shrink:0;';
+        btnRimC.appendChild(icona('cestino', 16));
+        const ciCapt = ci;
+        btnRimC.addEventListener('click', () => {
+          corseSeduta.splice(ciCapt, 1);
+          sincronizzaCorseCorrente();
+          renderCorseSeduta();
+        });
+        headerC.appendChild(labelC);
+        headerC.appendChild(btnRimC);
+        card.appendChild(headerC);
+
+        // Select tipo
+        const selectTipo = document.createElement('select');
+        selectTipo.style.cssText = 'width:100%;margin-bottom:8px;';
+        for (const t of [...TIPI_CORSA, 'Altro']) {
+          const opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = t;
+          selectTipo.appendChild(opt);
+        }
+        const tipoCorsaC = r.tipoCorsa ?? '';
+        const isAltroC = tipoCorsaC !== '' && !TIPI_CORSA.includes(tipoCorsaC);
+        selectTipo.value = isAltroC ? 'Altro' : (tipoCorsaC || TIPI_CORSA[0]);
+        if (!tipoCorsaC) r.tipoCorsa = TIPI_CORSA[0];
+        card.appendChild(selectTipo);
+
+        // Input testo "Altro"
+        const inputAltroC = document.createElement('input');
+        inputAltroC.type = 'text';
+        inputAltroC.placeholder = 'Tipo corsa personalizzato…';
+        inputAltroC.style.cssText = 'width:100%;box-sizing:border-box;margin-bottom:8px;display:' + (isAltroC ? 'block' : 'none') + ';';
+        if (isAltroC) inputAltroC.value = tipoCorsaC;
+        inputAltroC.addEventListener('input', () => {
+          r.tipoCorsa = inputAltroC.value;
+          sincronizzaCorseCorrente();
+        });
+        card.appendChild(inputAltroC);
+
+        selectTipo.addEventListener('input', () => {
+          if (selectTipo.value === 'Altro') {
+            inputAltroC.style.display = 'block';
+            r.tipoCorsa = inputAltroC.value;
+          } else {
+            inputAltroC.style.display = 'none';
+            r.tipoCorsa = selectTipo.value;
+          }
+          sincronizzaCorseCorrente();
+        });
+
+        // Tempo + Distanza
+        const rigaNumeriC = document.createElement('div');
+        rigaNumeriC.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;';
+
+        const tempoWrapC = document.createElement('div');
+        tempoWrapC.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:1;';
+        const labelTempoC = document.createElement('span');
+        labelTempoC.className = 'footnote';
+        labelTempoC.textContent = 'Tempo (min)';
+        const inputTempoC = document.createElement('input');
+        inputTempoC.type = 'number';
+        inputTempoC.min = 0;
+        inputTempoC.max = 600;
+        inputTempoC.step = 1;
+        inputTempoC.placeholder = '0';
+        inputTempoC.style.cssText = 'width:100%;box-sizing:border-box;';
+        if (r.tempoMin !== '' && r.tempoMin !== undefined && r.tempoMin !== null) {
+          inputTempoC.value = r.tempoMin;
+        }
+        tempoWrapC.appendChild(labelTempoC);
+        tempoWrapC.appendChild(inputTempoC);
+        rigaNumeriC.appendChild(tempoWrapC);
+
+        const distWrapC = document.createElement('div');
+        distWrapC.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:1;';
+        const labelDistC = document.createElement('span');
+        labelDistC.className = 'footnote';
+        labelDistC.textContent = 'Distanza (km)';
+        const inputDistC = document.createElement('input');
+        inputDistC.type = 'number';
+        inputDistC.min = 0;
+        inputDistC.max = 100;
+        inputDistC.step = 0.1;
+        inputDistC.placeholder = '0';
+        inputDistC.style.cssText = 'width:100%;box-sizing:border-box;';
+        if (r.distanzaKm !== '' && r.distanzaKm !== undefined && r.distanzaKm !== null) {
+          inputDistC.value = r.distanzaKm;
+        }
+        distWrapC.appendChild(labelDistC);
+        distWrapC.appendChild(inputDistC);
+        rigaNumeriC.appendChild(distWrapC);
+        card.appendChild(rigaNumeriC);
+
+        // Ritmo
+        const ritmoWrapC = document.createElement('div');
+        ritmoWrapC.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:8px;';
+        const labelRitmoC = document.createElement('span');
+        labelRitmoC.className = 'footnote';
+        labelRitmoC.textContent = 'Ritmo (/km)';
+        const inputRitmoC = document.createElement('input');
+        inputRitmoC.type = 'text';
+        inputRitmoC.style.cssText = 'width:100%;box-sizing:border-box;';
+        inputRitmoC.value = r.ritmo ?? '';
+
+        const aggiornaPlaceholderC = () => {
+          const t = parseFloat(inputTempoC.value);
+          const d = parseFloat(inputDistC.value);
+          const calcolato = calcolaRitmo(t, d);
+          inputRitmoC.placeholder = calcolato || 'es. 5:00';
+        };
+        aggiornaPlaceholderC();
+        ritmoWrapC.appendChild(labelRitmoC);
+        ritmoWrapC.appendChild(inputRitmoC);
+        card.appendChild(ritmoWrapC);
+
+        const aggiornaCampiC = () => {
+          const t = parseFloat(inputTempoC.value);
+          const d = parseFloat(inputDistC.value);
+          r.tempoMin = inputTempoC.value === '' ? '' : (isNaN(t) ? '' : t);
+          r.distanzaKm = inputDistC.value === '' ? '' : (isNaN(d) ? '' : d);
+          aggiornaPlaceholderC();
+          if (!inputRitmoC.value.trim()) {
+            const calcolato = calcolaRitmo(r.tempoMin, r.distanzaKm);
+            if (calcolato) {
+              inputRitmoC.value = calcolato;
+              r.ritmo = calcolato;
+            }
+          }
+          if (corsaValida({ tipo: r.tipoCorsa, tempoMin: r.tempoMin, distanzaKm: r.distanzaKm })) {
+            sincronizzaCorseCorrente();
+          }
+        };
+        inputTempoC.addEventListener('input', aggiornaCampiC);
+        inputDistC.addEventListener('input', aggiornaCampiC);
+        inputRitmoC.addEventListener('input', () => {
+          r.ritmo = inputRitmoC.value;
+          sincronizzaCorseCorrente();
+        });
+
+        // Nota
+        const notaWrapC = document.createElement('div');
+        notaWrapC.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+        const labelNotaC = document.createElement('span');
+        labelNotaC.className = 'footnote';
+        labelNotaC.textContent = 'Nota (facoltativa)';
+        const inputNotaC = document.createElement('input');
+        inputNotaC.type = 'text';
+        inputNotaC.placeholder = 'es. pista, zona 2…';
+        inputNotaC.style.cssText = 'width:100%;box-sizing:border-box;';
+        inputNotaC.value = r.note ?? '';
+        inputNotaC.addEventListener('input', () => {
+          r.note = inputNotaC.value;
+          sincronizzaCorseCorrente();
+        });
+        notaWrapC.appendChild(labelNotaC);
+        notaWrapC.appendChild(inputNotaC);
+        card.appendChild(notaWrapC);
+
+        corseContainer.appendChild(card);
+      }
+    }
+
+    renderCorseSeduta();
+
+    // Pulsante ＋ Corsa
+    const btnAddCorsa = document.createElement('button');
+    btnAddCorsa.className = 'secondario';
+    btnAddCorsa.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin-bottom:16px;';
+    btnAddCorsa.appendChild(icona('onda', 16));
+    const spnCorsaSed = document.createElement('span');
+    spnCorsaSed.textContent = 'Corsa';
+    btnAddCorsa.appendChild(spnCorsaSed);
+    btnAddCorsa.addEventListener('click', () => {
+      corseSeduta.push({ tipo: 'corsa', tipoCorsa: TIPI_CORSA[0], tempoMin: '', distanzaKm: '', ritmo: '', note: '' });
+      renderCorseSeduta();
+    });
+    contenitore.appendChild(btnAddCorsa);
+
+    return sincronizzaCorseCorrente;
+  }
+
   // ── Seduta con sole voci ──────────────────────────────────────────────────
 
   if (seduta.voci && seduta.voci.length > 0) {
@@ -90,12 +322,15 @@ export function apriSeduta(stato, voce) {
     cardVoci.appendChild(lista);
     radice.appendChild(cardVoci);
 
+    const sincronizzaCorseCorrente = montaCorse(radice);
+
     const stickyWrap = document.createElement('div');
     stickyWrap.style.cssText = 'position:sticky;bottom:calc(64px + env(safe-area-inset-bottom) + 8px);';
     const btnCompleta = document.createElement('button');
     btnCompleta.className = 'primario';
     btnCompleta.textContent = 'Seduta completata';
     btnCompleta.addEventListener('click', () => {
+      sincronizzaCorseCorrente();
       const sd = store.leggi('sedute', {});
       if (!sd[oggi]) sd[oggi] = {};
       sd[oggi][chiave] = true;
@@ -326,6 +561,10 @@ export function apriSeduta(stato, voce) {
     radice.appendChild(msgEmpty);
   }
 
+  // ── Sezione corse ─────────────────────────────────────────────────────────
+
+  const sincronizzaCorseCorrente = montaCorse(radice);
+
   // ── Bottone "Seduta completata" sticky bottom ─────────────────────────────
 
   const stickyWrap = document.createElement('div');
@@ -335,6 +574,7 @@ export function apriSeduta(stato, voce) {
   btnCompleta.className = 'primario';
   btnCompleta.textContent = 'Seduta completata';
   btnCompleta.addEventListener('click', () => {
+    sincronizzaCorseCorrente();
     const sd = store.leggi('sedute', {});
     if (!sd[oggi]) sd[oggi] = {};
     sd[oggi][chiave] = true;

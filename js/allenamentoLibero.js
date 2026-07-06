@@ -3,6 +3,7 @@ import { slugEsercizio } from './util.js';
 import { icona } from './icone.js';
 import { chip, segmented } from './ui.js';
 import { SEDUTE } from './programma.js';
+import { TIPI_CORSA, calcolaRitmo, sincronizzaCorse, rimuoviCorseDi, corsaValida } from './corse.js';
 
 let _contatore = 0;
 
@@ -51,6 +52,19 @@ export function registraAllenamento(store, allenamento) {
     });
   }
 
+  // Sincronizza corse
+  const righeCorsa = (allenamento.righe ?? [])
+    .filter(r => r.tipo === 'corsa')
+    .map(r => ({
+      data: allenamento.data,
+      tipo: r.tipoCorsa ?? '',
+      tempoMin: r.tempoMin,
+      distanzaKm: r.distanzaKm,
+      ritmo: r.ritmo ?? '',
+      note: r.note ?? '',
+    }));
+  sincronizzaCorse(store, 'libero:' + id, righeCorsa);
+
   return id;
 }
 
@@ -69,6 +83,7 @@ export function allenamentiDelGiorno(store, iso) {
 export function eliminaAllenamento(store, id) {
   const lista = store.leggi('allenamenti', []).filter(a => a.id !== id);
   store.scrivi('allenamenti', lista);
+  rimuoviCorseDi(store, 'libero:' + id);
 }
 
 // ─── Helpers vista ────────────────────────────────────────────────────────────
@@ -191,6 +206,15 @@ export function apriAllenamentoLibero(stato, esistente = null) {
           });
         } else if (r.tipo === 'nota') {
           righe.push({ tipo: 'nota', testo: r.testo ?? '' });
+        } else if (r.tipo === 'corsa') {
+          righe.push({
+            tipo: 'corsa',
+            tipoCorsa: r.tipoCorsa ?? '',
+            tempoMin: r.tempoMin ?? '',
+            distanzaKm: r.distanzaKm ?? '',
+            ritmo: r.ritmo ?? '',
+            note: r.note ?? '',
+          });
         }
       }
     }
@@ -397,6 +421,171 @@ export function apriAllenamentoLibero(stato, esistente = null) {
           textarea.value = r.testo;
           textarea.addEventListener('input', () => { r.testo = textarea.value; });
           card.appendChild(textarea);
+
+        } else if (r.tipo === 'corsa') {
+          // Intestazione corsa + rimuovi
+          const headerCorsa = document.createElement('div');
+          headerCorsa.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;';
+          const labelCorsa = document.createElement('span');
+          labelCorsa.className = 'footnote';
+          labelCorsa.textContent = 'Corsa';
+          const btnRimCorsa = document.createElement('button');
+          btnRimCorsa.className = 'secondario';
+          btnRimCorsa.style.cssText = 'padding:4px 8px;color:var(--rosso);margin-left:auto;flex-shrink:0;';
+          btnRimCorsa.appendChild(icona('cestino', 16));
+          const riCaptC = ri;
+          btnRimCorsa.addEventListener('click', () => {
+            righe.splice(riCaptC, 1);
+            renderRighe();
+          });
+          headerCorsa.appendChild(labelCorsa);
+          headerCorsa.appendChild(btnRimCorsa);
+          card.appendChild(headerCorsa);
+
+          // Select tipo corsa
+          const selectTipo = document.createElement('select');
+          selectTipo.style.cssText = 'width:100%;margin-bottom:8px;';
+          const opzioniTipo = [...TIPI_CORSA, 'Altro'];
+          for (const t of opzioniTipo) {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            selectTipo.appendChild(opt);
+          }
+          // Imposta valore corrente
+          const tipoCorsaCorrente = r.tipoCorsa ?? '';
+          const isAltro = tipoCorsaCorrente !== '' && !TIPI_CORSA.includes(tipoCorsaCorrente);
+          selectTipo.value = isAltro ? 'Altro' : (tipoCorsaCorrente || TIPI_CORSA[0]);
+          if (!tipoCorsaCorrente) {
+            r.tipoCorsa = TIPI_CORSA[0];
+          } else if (isAltro) {
+            // mantieni il valore libero in r.tipoCorsa
+          } else {
+            r.tipoCorsa = tipoCorsaCorrente;
+          }
+          card.appendChild(selectTipo);
+
+          // Input testo "Altro"
+          const inputAltroTipo = document.createElement('input');
+          inputAltroTipo.type = 'text';
+          inputAltroTipo.placeholder = 'Tipo corsa personalizzato…';
+          inputAltroTipo.style.cssText = 'width:100%;box-sizing:border-box;margin-bottom:8px;display:' + (isAltro ? 'block' : 'none') + ';';
+          if (isAltro) inputAltroTipo.value = tipoCorsaCorrente;
+          inputAltroTipo.addEventListener('input', () => { r.tipoCorsa = inputAltroTipo.value; });
+          card.appendChild(inputAltroTipo);
+
+          selectTipo.addEventListener('input', () => {
+            if (selectTipo.value === 'Altro') {
+              inputAltroTipo.style.display = 'block';
+              r.tipoCorsa = inputAltroTipo.value;
+            } else {
+              inputAltroTipo.style.display = 'none';
+              r.tipoCorsa = selectTipo.value;
+            }
+          });
+
+          // Riga tempo + distanza
+          const rigaNumeri = document.createElement('div');
+          rigaNumeri.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;';
+
+          // Tempo (min)
+          const tempoWrap = document.createElement('div');
+          tempoWrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:1;';
+          const labelTempo = document.createElement('span');
+          labelTempo.className = 'footnote';
+          labelTempo.textContent = 'Tempo (min)';
+          const inputTempo = document.createElement('input');
+          inputTempo.type = 'number';
+          inputTempo.min = 0;
+          inputTempo.max = 600;
+          inputTempo.step = 1;
+          inputTempo.placeholder = '0';
+          inputTempo.style.cssText = 'width:100%;box-sizing:border-box;';
+          if (r.tempoMin !== '' && r.tempoMin !== undefined && r.tempoMin !== null) {
+            inputTempo.value = r.tempoMin;
+          }
+          tempoWrap.appendChild(labelTempo);
+          tempoWrap.appendChild(inputTempo);
+          rigaNumeri.appendChild(tempoWrap);
+
+          // Distanza (km)
+          const distWrap = document.createElement('div');
+          distWrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:1;';
+          const labelDist = document.createElement('span');
+          labelDist.className = 'footnote';
+          labelDist.textContent = 'Distanza (km)';
+          const inputDist = document.createElement('input');
+          inputDist.type = 'number';
+          inputDist.min = 0;
+          inputDist.max = 100;
+          inputDist.step = 0.1;
+          inputDist.placeholder = '0';
+          inputDist.style.cssText = 'width:100%;box-sizing:border-box;';
+          if (r.distanzaKm !== '' && r.distanzaKm !== undefined && r.distanzaKm !== null) {
+            inputDist.value = r.distanzaKm;
+          }
+          distWrap.appendChild(labelDist);
+          distWrap.appendChild(inputDist);
+          rigaNumeri.appendChild(distWrap);
+          card.appendChild(rigaNumeri);
+
+          // Ritmo
+          const ritmoWrap = document.createElement('div');
+          ritmoWrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:8px;';
+          const labelRitmo = document.createElement('span');
+          labelRitmo.className = 'footnote';
+          labelRitmo.textContent = 'Ritmo (/km)';
+          const inputRitmo = document.createElement('input');
+          inputRitmo.type = 'text';
+          inputRitmo.style.cssText = 'width:100%;box-sizing:border-box;';
+          inputRitmo.value = r.ritmo ?? '';
+          // Funzione aggiornamento placeholder ritmo
+          const aggiornaPlaceholderRitmo = () => {
+            const t = parseFloat(inputTempo.value);
+            const d = parseFloat(inputDist.value);
+            const calcolato = calcolaRitmo(t, d);
+            inputRitmo.placeholder = calcolato || 'es. 5:00';
+          };
+          aggiornaPlaceholderRitmo();
+          ritmoWrap.appendChild(labelRitmo);
+          ritmoWrap.appendChild(inputRitmo);
+          card.appendChild(ritmoWrap);
+
+          // Listeners su tempo e distanza
+          const aggiornaCampiCorsa = () => {
+            const t = parseFloat(inputTempo.value);
+            const d = parseFloat(inputDist.value);
+            r.tempoMin = inputTempo.value === '' ? '' : (isNaN(t) ? '' : t);
+            r.distanzaKm = inputDist.value === '' ? '' : (isNaN(d) ? '' : d);
+            aggiornaPlaceholderRitmo();
+            // Auto-riempi ritmo solo se il campo è vuoto
+            if (!inputRitmo.value.trim()) {
+              const calcolato = calcolaRitmo(r.tempoMin, r.distanzaKm);
+              if (calcolato) {
+                inputRitmo.value = calcolato;
+                r.ritmo = calcolato;
+              }
+            }
+          };
+          inputTempo.addEventListener('input', aggiornaCampiCorsa);
+          inputDist.addEventListener('input', aggiornaCampiCorsa);
+          inputRitmo.addEventListener('input', () => { r.ritmo = inputRitmo.value; });
+
+          // Nota facoltativa
+          const notaWrap = document.createElement('div');
+          notaWrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+          const labelNota2 = document.createElement('span');
+          labelNota2.className = 'footnote';
+          labelNota2.textContent = 'Nota (facoltativa)';
+          const inputNotaCorsa = document.createElement('input');
+          inputNotaCorsa.type = 'text';
+          inputNotaCorsa.placeholder = 'es. pista, zona 2…';
+          inputNotaCorsa.style.cssText = 'width:100%;box-sizing:border-box;';
+          inputNotaCorsa.value = r.note ?? '';
+          inputNotaCorsa.addEventListener('input', () => { r.note = inputNotaCorsa.value; });
+          notaWrap.appendChild(labelNota2);
+          notaWrap.appendChild(inputNotaCorsa);
+          card.appendChild(notaWrap);
         }
 
         righeContainer.appendChild(card);
@@ -433,8 +622,21 @@ export function apriAllenamentoLibero(stato, esistente = null) {
       renderRighe();
     });
 
+    const btnAddCorsa = document.createElement('button');
+    btnAddCorsa.className = 'secondario';
+    btnAddCorsa.style.cssText = 'display:inline-flex;align-items:center;gap:4px;';
+    btnAddCorsa.appendChild(icona('onda', 16));
+    const spnCorsa = document.createElement('span');
+    spnCorsa.textContent = 'Corsa';
+    btnAddCorsa.appendChild(spnCorsa);
+    btnAddCorsa.addEventListener('click', () => {
+      righe.push({ tipo: 'corsa', tipoCorsa: TIPI_CORSA[0], tempoMin: '', distanzaKm: '', ritmo: '', note: '' });
+      renderRighe();
+    });
+
     addBtnsRow.appendChild(btnAddEsercizio);
     addBtnsRow.appendChild(btnAddNota);
+    addBtnsRow.appendChild(btnAddCorsa);
     radice.appendChild(addBtnsRow);
 
     // ── Zona messaggi errore ────────────────────────────────────────────────
@@ -474,17 +676,26 @@ export function apriAllenamentoLibero(stato, esistente = null) {
       // Costruisci oggetto
       const righeFinali = righe.map(r => {
         if (r.tipo === 'nota') return { tipo: 'nota', testo: r.testo };
+        if (r.tipo === 'corsa') return {
+          tipo: 'corsa',
+          tipoCorsa: r.tipoCorsa ?? '',
+          tempoMin: r.tempoMin,
+          distanzaKm: r.distanzaKm,
+          ritmo: r.ritmo ?? '',
+          note: r.note ?? '',
+        };
         return { tipo: 'esercizio', nome: r.nome, unita: r.unita ?? 'reps', serie: r.serie };
       });
 
-      // Validazione: serve almeno un esercizio valido (nome + ≥1 serie valida) o una nota non vuota
+      // Validazione: serve almeno un esercizio valido (nome + ≥1 serie valida), una nota non vuota, o una corsa valida
       const haEsercizioValido = righeFinali.some(r =>
         r.tipo === 'esercizio' && r.nome && r.nome.trim() &&
         serieValide(r.serie).length > 0
       );
       const haNotaValida = righeFinali.some(r => r.tipo === 'nota' && r.testo && r.testo.trim());
+      const haCorsaValida = righeFinali.some(r => r.tipo === 'corsa' && corsaValida({ tipo: r.tipoCorsa, tempoMin: r.tempoMin, distanzaKm: r.distanzaKm }));
 
-      if (!haEsercizioValido && !haNotaValida) {
+      if (!haEsercizioValido && !haNotaValida && !haCorsaValida) {
         msgZona.appendChild(chip('Aggiungi almeno un esercizio o una nota', 'ambra'));
         return;
       }

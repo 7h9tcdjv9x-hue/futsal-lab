@@ -7,6 +7,7 @@ import { salvaFoto, elencoFoto, urlFoto, eliminaFoto } from './foto.js';
 import { segmented, chip, statoVuoto } from './ui.js';
 import { icona } from './icone.js';
 import { apriAllenamentoLibero } from './allenamentoLibero.js';
+import { ritmoASecondi, formattaCorsa } from './corse.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -844,6 +845,81 @@ function renderDiario(stato, container) {
   container.appendChild(card);
 }
 
+// ─── Sezione Corsa ────────────────────────────────────────────────────────────
+
+function renderCorsa(store, container) {
+  container.innerHTML = '';
+
+  const corse = [...(store.leggi('corse', []))];
+
+  if (corse.length === 0) {
+    container.appendChild(statoVuoto('onda', 'Nessuna corsa registrata', 'Aggiungila da un allenamento'));
+    return;
+  }
+
+  // ── Grafico distanza ──────────────────────────────────────────────────────
+  const puntiDistanza = corse
+    .filter(c => Number(c.distanzaKm) > 0)
+    .sort((a, b) => (a.data ?? '').localeCompare(b.data ?? ''))
+    .map(c => ({ x: c.data, y: Number(c.distanzaKm) }));
+
+  if (puntiDistanza.length >= 1) {
+    const cardDistanza = creaCard('Distanza');
+    const captDistanza = document.createElement('p');
+    captDistanza.className = 'secondario';
+    captDistanza.style.cssText = 'font-size:0.8rem;margin-bottom:4px;';
+    captDistanza.textContent = 'Distanza percorsa (km)';
+    cardDistanza.appendChild(captDistanza);
+    const chartDiv = document.createElement('div');
+    chartDiv.innerHTML = lineaSVG({ punti: puntiDistanza, unita: 'km' });
+    cardDistanza.appendChild(chartDiv);
+    container.appendChild(cardDistanza);
+  }
+
+  // ── Grafico ritmo ─────────────────────────────────────────────────────────
+  const puntiRitmo = corse
+    .filter(c => ritmoASecondi(c.ritmo) !== null)
+    .sort((a, b) => (a.data ?? '').localeCompare(b.data ?? ''))
+    .map(c => ({ x: c.data, y: ritmoASecondi(c.ritmo) }));
+
+  if (puntiRitmo.length >= 1) {
+    const cardRitmo = creaCard('Ritmo');
+    const captRitmo = document.createElement('p');
+    captRitmo.className = 'secondario';
+    captRitmo.style.cssText = 'font-size:0.8rem;margin-bottom:4px;';
+    captRitmo.textContent = 'Ritmo (min/km) — più in basso = più veloce';
+    cardRitmo.appendChild(captRitmo);
+    const chartDiv = document.createElement('div');
+    chartDiv.innerHTML = lineaSVG({ punti: puntiRitmo });
+    cardRitmo.appendChild(chartDiv);
+    container.appendChild(cardRitmo);
+  }
+
+  // ── Elenco storico ────────────────────────────────────────────────────────
+  const cardStorico = creaCard('Storico');
+  const corseOrd = [...corse].sort((a, b) => (b.data ?? '').localeCompare(a.data ?? ''));
+  for (const c of corseOrd) {
+    const riga = document.createElement('div');
+    riga.className = 'riga';
+
+    const dataEl = document.createElement('span');
+    dataEl.className = 'secondario';
+    dataEl.textContent = new Date((c.data ?? '') + 'T12:00:00').toLocaleDateString('it-IT', {
+      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+    });
+
+    const detEl = document.createElement('span');
+    detEl.className = 'secondario';
+    detEl.style.cssText = 'text-align:right;';
+    detEl.textContent = formattaCorsa(c);
+
+    riga.appendChild(dataEl);
+    riga.appendChild(detEl);
+    cardStorico.appendChild(riga);
+  }
+  container.appendChild(cardStorico);
+}
+
 // ─── Vista principale ─────────────────────────────────────────────────────────
 
 export function vistaProgressi(stato, radice) {
@@ -855,8 +931,8 @@ export function vistaProgressi(stato, radice) {
   header.textContent = 'Progressi';
   radice.appendChild(header);
 
-  const VOCI = ['Peso', 'Forza', 'Test', 'Recupero', 'Foto', 'Diario'];
-  const CHIAVI = ['peso', 'forza', 'test', 'recupero', 'foto', 'diario'];
+  const VOCI = ['Peso', 'Forza', 'Test', 'Recupero', 'Foto', 'Diario', 'Corsa'];
+  const CHIAVI = ['peso', 'forza', 'test', 'recupero', 'foto', 'diario', 'corsa'];
 
   let tabAttiva = 0;
   const contenuto = document.createElement('div');
@@ -879,6 +955,8 @@ export function vistaProgressi(stato, radice) {
       renderFoto(store, oggi, contenuto);
     } else if (tab === 'diario') {
       renderDiario(stato, contenuto);
+    } else if (tab === 'corsa') {
+      renderCorsa(store, contenuto);
     } else {
       const card = creaCard(VOCI[idx]);
       const p = document.createElement('p');
